@@ -2,7 +2,7 @@
    交易时段看板 - 样式（暗色主题）
    参考：截图暗色版交易时段配色
    - 深灰黑背景 + 亮色文字
-   - 状态色：交易中=蓝 / 午休=紫 / 盘前=橙 / 盘后=紫 / 隔夜=绿 / 周末=深灰 / 休市=红
+   - 状态色：交易中=绿 / 午休=灰 / 盘前=橙 / 盘后=灰 / 隔夜=蓝 / 周末=深灰 / 休市=红
    - 涨跌：绿涨红跌（涨=#22C55E，跌=#EF4444）
    ============================================================ */
 
@@ -19,11 +19,11 @@
   --track: #2A2F38;          /* 时间轴非交易轨道 */
 
   /* 状态色（时段状态，非涨跌） */
-  --c-open: #4A90E2;         /* 交易中：蓝（活跃） */
-  --c-lunch: #A06BE0;        /* 午间休市：紫 */
+  --c-open: #3DCC70;         /* 交易中：绿（活跃） */
+  --c-lunch: #F5F6F7;        /* 午间休市：灰 */
   --c-pre: #F5A623;          /* 盘前：橙 */
-  --c-post: #9B6BF0;         /* 盘后：紫 */
-  --c-overnight: #3DCC70;    /* 隔夜：绿 */
+  --c-post: #F5F6F7;         /* 盘后：灰 */
+  --c-overnight: #4A90E2;    /* 隔夜：蓝 */
   --c-weekend: #3A3F4A;      /* 周末：深灰 */
   --c-holiday: #EF4444;      /* 休市：红（提醒） */
 
@@ -208,11 +208,11 @@ body {
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
 
-.badge.st-open      { background: rgba(74, 144, 226, 0.16); color: #7CB3F5; }
-.badge.st-lunch     { background: rgba(160, 107, 224, 0.16); color: #B890F0; }
+.badge.st-open      { background: rgba(61, 204, 112, 0.14); color: #6FD99B; }
+.badge.st-lunch     { background: rgba(245, 246, 247, 0.14); color: #E5E7EB; }
 .badge.st-pre       { background: rgba(245, 166, 35, 0.16); color: #F5B84D; }
-.badge.st-post      { background: rgba(155, 107, 240, 0.16); color: #B890F0; }
-.badge.st-overnight { background: rgba(61, 204, 112, 0.14); color: #6FD99B; }
+.badge.st-post      { background: rgba(245, 246, 247, 0.14); color: #E5E7EB; }
+.badge.st-overnight { background: rgba(74, 144, 226, 0.16); color: #7CB3F5; }
 .badge.st-weekend   { background: rgba(138, 144, 153, 0.14); color: #A8AEB8; }
 .badge.st-holiday   { background: rgba(239, 68, 68, 0.16); color: #F07B7B; }
 
