@@ -168,13 +168,14 @@ function computeRegularMarket(cfg, now) {
   const segs = buildSegs(cfg);
 
   if (!isTrading) {
-    // 周末/节假日：全天非交易（深灰），无交易时段分段
-    const closedSegs = [{ start: 0, end: 1440, cls: 'tl-closed' }];
+    // 周末：全天非交易（浅灰轨道）；节假日：淡红提醒，区分于周末
+    const weekendSegs = [{ start: 0, end: 1440, cls: 'tl-closed' }];
+    const holidaySegs = [{ start: 0, end: 1440, cls: 'tl-holiday' }];
     if (now.weekday === 0 || now.weekday === 6) {
-      return { status: 'weekend', detail: '周末休市', countdownLabel: '距开盘', targetMs: nextOpen(cfg, now.key), timelineSegs: closedSegs, holidayName: null };
+      return { status: 'weekend', detail: '周末休市', countdownLabel: '距开盘', targetMs: nextOpen(cfg, now.key), timelineSegs: weekendSegs, holidayName: null };
     }
     const name = getHolidayName(cfg.id, now.key);
-    return { status: 'holiday', detail: name + ' · 休市', countdownLabel: '距开盘', targetMs: nextOpen(cfg, now.key), timelineSegs: closedSegs, holidayName: name };
+    return { status: 'holiday', detail: name + ' · 休市', countdownLabel: '距开盘', targetMs: nextOpen(cfg, now.key), timelineSegs: holidaySegs, holidayName: name };
   }
 
   // 港股半日市
@@ -279,10 +280,10 @@ function usStatus(now) {
   const segs = buildUsTimeline(offset);
 
   if (HOLIDAYS.us.includes(etKey)) {
-    return { status: 'holiday', detail: '美股休市日', countdownLabel: '距开盘', targetMs: usNextOpenMs(etKey), timelineSegs: segs, holidayName: '美股休市日' };
+    return { status: 'holiday', detail: '美股休市日', countdownLabel: '距开盘', targetMs: usNextOpenMs(etKey), timelineSegs: [{ start: 0, end: 1440, cls: 'tl-holiday' }], holidayName: '美股休市日' };
   }
   if (etDow === 0 || etDow === 6) {
-    return { status: 'weekend', detail: '周末休市', countdownLabel: '距开盘', targetMs: usNextOpenMs(etKey), timelineSegs: segs, holidayName: null };
+    return { status: 'weekend', detail: '周末休市', countdownLabel: '距开盘', targetMs: usNextOpenMs(etKey), timelineSegs: [{ start: 0, end: 1440, cls: 'tl-closed' }], holidayName: null };
   }
 
   const OPEN_E = isEarly ? 780 : 960;
