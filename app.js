@@ -337,28 +337,35 @@ const statusFns = {
 };
 
 // ---------- 行情 ----------
+// quotes: 最新价/涨跌幅（key=东财短代码，如 000001/HSI）
+// closes: 昨收价（key=短代码），用于最新价缺失时的回退
+// crypto: 加密货币（key=BTC/ETH）
 let quotes = {};
+let closes = {};
 let crypto = {};
 
 async function fetchQuotes() {
+  // 1) 指数行情：东财批量接口。f2=最新价 f3=涨跌幅 f18=昨收 f12=短代码（均需 ÷100）
   const secids = [];
   for (const m of MARKETS) {
     for (const q of m.quotes) if (q.secid) secids.push(q.secid);
   }
   try {
-    const url = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + secids.join(',') + '&fields=f2,f3,f4,f12,f14';
+    const url = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + secids.join(',') + '&fields=f2,f3,f18,f12,f14';
     const r = await fetch(url);
     const j = await r.json();
     if (j && j.data && j.data.diff) {
       for (const it of j.data.diff) {
-        quotes[it.f12] = { price: it.f2 / 100, pct: it.f3 / 100, change: it.f4 / 100 };
+        quotes[it.f12] = { price: it.f2 / 100, pct: it.f3 / 100 };
+        closes[it.f12] = it.f18 / 100;
       }
     }
   } catch (e) {
     console.warn('指数行情获取失败（东方财富）', e);
   }
+  // 2) 加密货币：Binance 官方数据镜像（api.binance.com 被墙，改用镜像域名）
   try {
-    const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22%5D');
+    const r = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22%5D');
     const arr = await r.json();
     for (const it of arr) {
       crypto[it.symbol.replace('USDT', '')] = { price: +it.lastPrice, pct: +it.priceChangePercent };
@@ -386,10 +393,23 @@ function renderStats(m) {
     let price = null, pct = null;
     if (m.id === 'crypto') {
       const d = crypto[q.label];
-      if (d) { price = d.price; pct = d.pct; }
+      if (d && isFinite(d.price) && d.price > 0) { price = d.price; pct = d.pct; }
     } else {
-      const d = quotes[q.secid];
-      if (d) { price = d.price; pct = d.pct; }
+      // 东财返回短代码（f12），secid 形如 "1.000001"/"100.HSI" → 短代码取点号后部分
+      const code = q.secid.split('.')[1];
+      const d = quotes[code];
+      const prev = closes[code];
+      const hasLive = d && isFinite(d.price) && d.price > 0;
+      const hasPrev = isFinite(prev) && prev > 0;
+      if (hasLive) {
+        // 显示数据：盘中=最新价，已收盘=当日收盘价
+        price = d.price;
+        pct = isFinite(d.pct) ? d.pct : (hasPrev ? (d.price - prev) / prev * 100 : null);
+      } else if (hasPrev) {
+        // 回退：无最新价 → 用昨收（历史最近一天有价格的收盘价）
+        price = prev;
+        pct = null;
+      }
     }
     const cls = pct == null ? 'flat' : (pct > 0 ? 'up' : (pct < 0 ? 'down' : 'flat'));
     html += '<div class="stat">' +
@@ -459,7 +479,7 @@ function renderLegend() {
 
 function renderSrc() {
   document.getElementById('src').innerHTML =
-    '行情数据来源：东方财富（指数）、Binance（加密货币），可能存在延迟，仅供参考。<br>' +
+    '行情数据来源：东方财富（指数）、Binance 官方镜像（加密货币），可能存在延迟，仅供参考。<br>' +
     '节假日数据来源：上交所 / 港交所 / JPX / NYSE 官方日历，核实于 2026-11-09，覆盖 ' + DATA_YEAR + ' 年。' +
     '本页面不构成任何投资建议。';
 }
