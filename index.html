@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>交易时段看板 · 北京时间</title>
+  <meta name="description" content="以北京时间为基准的全球交易时段看板：A股、港股、日经、美股、加密货币实时开休市状态与行情。" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <div>
+        <h1>交易时段看板</h1>
+        <div id="date-line">—</div>
+        <div id="day-tip"><span class="dot"></span><span id="day-tip-text">—</span></div>
+      </div>
+      <div class="hero-right">
+        <div id="clock">--:--:--</div>
+        <div class="tz">北京时间 UTC+8</div>
+      </div>
+    </header>
+
+    <div id="data-warning" class="data-warning" hidden>
+      节假日数据仅覆盖 2026 年，当前日期已超出覆盖范围，时段判定可能不准确，请更新 data.js。
+    </div>
+
+    <main id="grid" class="grid"></main>
+
+    <footer>
+      <div class="legend" id="legend"></div>
+      <div class="src" id="src"></div>
+    </footer>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
