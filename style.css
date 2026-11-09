@@ -1,45 +1,46 @@
 /* ============================================================
-   交易时段看板 - 样式（Cohere 风格 · 亮色极简编辑部风）
-   参考：DESIGN-cohere.md
-   - 白色画布 + 近黑文字 + 细边框，去重阴影，扁平
-   - mono 大写字标签、克制的留白
-   - 中国惯例：红涨绿跌
+   交易时段看板 - 样式（MongoDB 风格 · 亮色表面 + 深海军蓝 hero）
+   参考：DESIGN-mongodb.md
+   - 白色画布 + 深海军蓝文字 + MongoDB 亮绿主信号
+   - 深海军蓝 hero band + pill 徽章，去重阴影，扁平
+   - 状态色用 MongoDB 语义色（绿/橙/蓝/紫/灰）
+   - 中国惯例：红涨绿跌（跌用 MongoDB 深绿 #00684a，与交易中亮绿区分）
    ============================================================ */
 
 :root {
-  /* 表面与文字 */
+  /* 表面与文字（MongoDB 令牌） */
   --canvas: #ffffff;
-  --ink: #17171c;          /* 近黑主色 */
-  --text: #212121;
-  --muted: #75758a;        /* slate */
-  --faint: #93939f;
-  --hairline: #d9d9dd;
-  --border-light: #e5e7eb;
-  --stone: #eeece7;        /* soft stone */
-  --pale: #f7f7f8;
+  --ink: #001e2b;          /* 深海军蓝主色 brand-teal-deep */
+  --text: #1c2d38;         /* charcoal */
+  --muted: #5c6c7a;        /* steel */
+  --faint: #7c8c9a;        /* stone */
+  --hairline: #e1e5e8;
+  --border-light: #eceff1; /* hairline-soft */
+  --stone: #f4f7f6;        /* surface-soft */
+  --pale: #f9fbfa;         /* surface */
 
-  --action-blue: #1863dc;
-  --deep-green: #003c33;
+  --action-blue: #3d4f9f;  /* accent-blue */
+  --deep-green: #00684a;   /* brand-green-dark */
 
-  /* 状态色（时段状态，非涨跌） */
-  --c-open: #1863dc;       /* 交易中 */
-  --c-lunch: #f5a623;      /* 午间休市（用户指定） */
-  --c-pre: #0f766e;        /* 盘前 */
-  --c-post: #6d28d9;       /* 盘后 */
-  --c-overnight: #75758a;  /* 隔夜 */
-  --c-weekend: #93939f;    /* 周末 */
-  --c-holiday: #dc2626;    /* 休市 */
+  /* 状态色（时段状态，非涨跌）—— MongoDB 语义 */
+  --c-open: #00ed64;       /* 交易中：MongoDB 亮绿（主信号） */
+  --c-lunch: #fa6e39;      /* 午间休市：accent-orange */
+  --c-pre: #3d4f9f;        /* 盘前：accent-blue */
+  --c-post: #7b3ff2;       /* 盘后：accent-purple */
+  --c-overnight: #5c6c7a;  /* 隔夜：steel */
+  --c-weekend: #a8b3bc;    /* 周末：muted */
+  --c-holiday: #001e2b;    /* 休市：深海军蓝（关闭/无活动） */
 
   /* 涨跌（中国惯例：红涨绿跌） */
-  --c-up: #dc2626;
-  --c-down: #16a34a;
+  --c-up: #dc2626;         /* 涨：红（金融惯例保留） */
+  --c-down: #00684a;       /* 跌：MongoDB 深绿 */
 
   /* 字体 */
-  --font-display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI",
+  --font-display: "Euclid Circular A", "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+  --font-ui: "Euclid Circular A", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --font-mono: "Source Code Pro", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -55,9 +56,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 顶部公告条（Cohere announcement-bar） */
+/* 顶部公告条（MongoDB promo-banner：深海军蓝） */
 .announce {
-  background: #000000;
+  background: #001e2b;
   color: #ffffff;
   height: 36px;
   display: flex;
@@ -88,7 +89,7 @@ body {
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--deep-green);
 }
 .hero h1 {
   font-family: var(--font-display);
@@ -124,11 +125,11 @@ body {
   margin-top: 8px;
 }
 
-/* 数据范围警告 */
+/* 数据范围警告（MongoDB semantic-warning） */
 .data-warning {
-  background: #fdeaea;
-  border: 1px solid #f5c2c2;
-  color: #b30000;
+  background: #fff8e0;
+  border: 1px solid #f0e0a8;
+  color: #946f3f;
   font-size: 13px;
   padding: 12px 16px;
   border-radius: 12px;
@@ -186,13 +187,13 @@ body {
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
 
-.badge.st-open     { background: #eaf1ff; color: #1863dc; }
-.badge.st-lunch    { background: #fdf1e0; color: #b45309; }
-.badge.st-pre      { background: #e0f2f1; color: #0f766e; }
-.badge.st-post     { background: #f1eafa; color: #6d28d9; }
-.badge.st-overnight{ background: #f0f0f3; color: #75758a; }
-.badge.st-weekend  { background: #f2f2f4; color: #93939f; }
-.badge.st-holiday  { background: #fdeaea; color: #dc2626; }
+.badge.st-open     { background: #c3f0d2; color: #00684a; }
+.badge.st-lunch    { background: #fde3d5; color: #c0431f; }
+.badge.st-pre      { background: #e3e6f4; color: #3d4f9f; }
+.badge.st-post     { background: #ede5fb; color: #7b3ff2; }
+.badge.st-overnight{ background: #eef1f3; color: #5c6c7a; }
+.badge.st-weekend  { background: #f2f4f5; color: #7c8c9a; }
+.badge.st-holiday  { background: #dfe8ed; color: #001e2b; }
 
 .dot-open     { background: var(--c-open); }
 .dot-lunch    { background: var(--c-lunch); }
@@ -264,7 +265,7 @@ body {
 .timeline { position: relative; }
 .timeline-bar {
   display: flex; height: 16px; border-radius: 6px; overflow: hidden;
-  background: #ececf0;
+  background: #eceff1;
 }
 .timeline-now {
   position: absolute; top: -3px; width: 2px; height: 22px;
@@ -275,7 +276,7 @@ body {
 .tl-pre      { background: var(--c-pre); }
 .tl-post     { background: var(--c-post); }
 .tl-overnight{ background: var(--c-overnight); }
-.tl-closed   { background: #ececf0; }
+.tl-closed   { background: #eceff1; }
 
 /* ---------- 底部图例与说明 ---------- */
 footer { margin-top: 44px; }
