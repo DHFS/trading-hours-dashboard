@@ -347,8 +347,8 @@ function renderTimeline(segs, nowMinute) {
     '<div class="timeline-now" style="left:' + pct + '%"></div></div>';
 }
 
-function renderQuotes(m) {
-  let rows = '';
+function renderStats(m) {
+  let html = '';
   for (const q of m.quotes) {
     let price = null, pct = null;
     if (m.id === 'crypto') {
@@ -359,36 +359,40 @@ function renderQuotes(m) {
       if (d) { price = d.price; pct = d.pct; }
     }
     const cls = pct == null ? 'flat' : (pct > 0 ? 'up' : (pct < 0 ? 'down' : 'flat'));
-    rows += '<div class="quote-row">' +
-      '<span class="quote-label">' + q.label + '</span>' +
-      '<span class="quote-val">' + fmtPrice(price) + '</span>' +
-      '<span class="quote-pct ' + cls + '">' + fmtPct(pct) + '</span>' +
+    html += '<div class="stat">' +
+      '<span class="stat-label">' + q.label + '</span>' +
+      '<span class="stat-val">' + fmtPrice(price) + '</span>' +
+      '<span class="stat-pct ' + cls + '">' + fmtPct(pct) + '</span>' +
       '</div>';
   }
-  return rows;
+  return html;
 }
 
 function renderCard(m, st, now) {
   const meta = STATUS_META[st.status];
-  const badge = '<span class="badge ' + meta.cls + '"><span class="dot dot-' + st.status + '"></span>' + meta.label + '</span>';
-  const quotesHtml = renderQuotes(m);
+  const badge = '<span class="badge st-' + st.status + '"><span class="dot dot-' + st.status + '"></span>' + meta.label + '</span>';
+  const statsHtml = renderStats(m);
   let cd = '';
   if (st.countdownLabel && st.targetMs) {
     const text = st.countdownLabel + ' ' + fmtDuration(st.targetMs - now.nowMs);
-    cd = '<div class="countdown" data-label="' + st.countdownLabel + '" data-target="' + st.targetMs + '">' + text + '</div>';
+    cd = '<span class="countdown" data-label="' + st.countdownLabel + '" data-target="' + st.targetMs + '">' + text + '</span>';
   }
   const timeline = renderTimeline(st.timelineSegs, now.minute);
 
-  return '<div class="card">' +
-    '<div class="card-head">' +
-      '<div><div class="card-title">' + m.name + '</div><div class="card-sub">' + m.sub + '</div></div>' +
+  return '<article class="card">' +
+    '<header class="card-head">' +
+      '<div class="card-title-wrap">' +
+        '<div class="card-kicker">' + m.sub + '</div>' +
+        '<h2 class="card-title">' + m.name + '</h2>' +
+      '</div>' +
       badge +
+    '</header>' +
+    '<div class="stats">' + statsHtml + '</div>' +
+    '<div class="card-foot">' +
+      '<div class="detail-line"><span class="detail">' + st.detail + '</span>' + cd + '</div>' +
+      timeline +
     '</div>' +
-    '<div class="quotes">' + quotesHtml + '</div>' +
-    '<div class="detail">' + st.detail + '</div>' +
-    cd +
-    timeline +
-    '</div>';
+    '</article>';
 }
 
 function renderDayTip(now) {
