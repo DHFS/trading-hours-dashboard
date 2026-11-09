@@ -412,59 +412,66 @@ function renderTimeline(segs, nowMinute) {
       '<i class="tick"></i><span class="lbl">' + fmtClock(mm) + '</span></span>';
   }
   const pct = (nowMinute / 1440 * 100).toFixed(2);
-  return '<div class="timeline">' +
-    '<div class="timeline-bar">' + bar + '</div>' +
+  return '<div class="timeline-bar">' + bar + '</div>' +
     '<div class="timeline-now" style="left:' + pct + '%"></div>' +
-    '<div class="timeline-marks">' + marksHtml + '</div>' +
-    '</div>';
+    '<div class="timeline-marks">' + marksHtml + '</div>';
+}
+
+// 行情取值（返回 {price, pct}，首次渲染与增量更新共用）
+function quoteValue(marketId, code) {
+  let price = null, pct = null;
+  if (marketId === 'crypto') {
+    const d = crypto[code];
+    if (d && isFinite(d.price) && d.price > 0) { price = d.price; pct = d.pct; }
+  } else {
+    const d = quotes[code];
+    const prev = closes[code];
+    const hasLive = d && isFinite(d.price) && d.price > 0;
+    const hasPrev = isFinite(prev) && prev > 0;
+    if (hasLive) {
+      // 显示数据：盘中=最新价，已收盘=当日收盘价
+      price = d.price;
+      pct = isFinite(d.pct) ? d.pct : (hasPrev ? (d.price - prev) / prev * 100 : null);
+    } else if (hasPrev) {
+      // 回退：无最新价 → 用昨收（历史最近一天有价格的收盘价）
+      price = prev;
+      pct = null;
+    }
+  }
+  return { price, pct };
 }
 
 function renderStats(m) {
   let html = '';
   for (const q of m.quotes) {
-    let price = null, pct = null;
-    if (m.id === 'crypto') {
-      const d = crypto[q.label];
-      if (d && isFinite(d.price) && d.price > 0) { price = d.price; pct = d.pct; }
-    } else {
-      // 东财返回短代码（f12），secid 形如 "1.000001"/"100.HSI" → 短代码取点号后部分
-      const code = q.secid.split('.')[1];
-      const d = quotes[code];
-      const prev = closes[code];
-      const hasLive = d && isFinite(d.price) && d.price > 0;
-      const hasPrev = isFinite(prev) && prev > 0;
-      if (hasLive) {
-        // 显示数据：盘中=最新价，已收盘=当日收盘价
-        price = d.price;
-        pct = isFinite(d.pct) ? d.pct : (hasPrev ? (d.price - prev) / prev * 100 : null);
-      } else if (hasPrev) {
-        // 回退：无最新价 → 用昨收（历史最近一天有价格的收盘价）
-        price = prev;
-        pct = null;
-      }
-    }
-    const cls = pct == null ? 'flat' : (pct > 0 ? 'up' : (pct < 0 ? 'down' : 'flat'));
-    html += '<div class="stat">' +
+    const code = m.id === 'crypto' ? q.label : q.secid.split('.')[1];
+    html += '<div class="stat" data-market="' + m.id + '" data-code="' + code + '">' +
       '<span class="stat-label">' + q.label + '</span>' +
-      '<span class="stat-val">' + fmtPrice(price) + '</span>' +
-      '<span class="stat-pct ' + cls + '">' + fmtPct(pct) + '</span>' +
+      '<span class="stat-val">--</span>' +
+      '<span class="stat-pct flat">--</span>' +
       '</div>';
   }
   return html;
 }
 
+function tlKey(segs) {
+  return segs.map(s => s.start + '-' + s.end + '-' + s.cls).join('|');
+}
+
 function renderCard(m, st, now) {
   const meta = STATUS_META[st.status];
-  const badge = '<span class="badge st-' + st.status + '"><span class="dot dot-' + st.status + '"></span>' + meta.label + '</span>';
+  const badge = '<span class="badge st-' + st.status + '"><span class="dot dot-' + st.status + '"></span><span class="badge-text">' + meta.label + '</span></span>';
   const statsHtml = renderStats(m);
   let cd = '';
   if (st.countdownLabel && st.targetMs) {
     const text = st.countdownLabel + ' ' + fmtDuration(st.targetMs - now.nowMs);
     cd = '<span class="countdown" data-label="' + st.countdownLabel + '" data-target="' + st.targetMs + '">' + text + '</span>';
+  } else {
+    cd = '<span class="countdown" hidden></span>';
   }
   const timeline = renderTimeline(st.timelineSegs, now.minute);
 
-  return '<article class="card">' +
+  return '<article class="card" data-id="' + m.id + '" data-tlkey="' + tlKey(st.timelineSegs) + '">' +
     '<header class="card-head">' +
       '<div class="card-title-wrap">' +
         '<div class="card-kicker">' + m.sub + '</div>' +
@@ -475,7 +482,7 @@ function renderCard(m, st, now) {
     '<div class="stats">' + statsHtml + '</div>' +
     '<div class="card-foot">' +
       '<div class="detail-line"><span class="detail">' + st.detail + '</span>' + cd + '</div>' +
-      timeline +
+      '<div class="timeline">' + timeline + '</div>' +
     '</div>' +
     '</article>';
 }
@@ -516,32 +523,94 @@ function renderSrc() {
     '本页面不构成任何投资建议。';
 }
 
-function renderAll() {
-  const now = beijingNow();
+// 更新顶部 header（日期/警告/日提示，均为文本或 hidden，不重建 DOM）
+function updateHeader(now) {
   const weekNames = ['日', '一', '二', '三', '四', '五', '六'];
   document.getElementById('date-line').textContent =
     now.y + '年' + now.m + '月' + now.d + '日 星期' + weekNames[now.weekday];
-
   const warn = document.getElementById('data-warning');
   warn.hidden = !(now.key < DATA_YEAR + '-01-01' || now.key > DATA_YEAR + '-12-31');
-
   renderDayTip(now);
+}
 
-  // 排序：加密货币永远置顶；其余按"距离开盘"升序（越近越靠前）
+// 增量更新单张卡片的状态（不重建 DOM）
+function patchCard(el, m, st, now) {
+  const meta = STATUS_META[st.status];
+  const badge = el.querySelector('.badge');
+  badge.className = 'badge st-' + st.status;
+  badge.querySelector('.dot').className = 'dot dot-' + st.status;
+  badge.querySelector('.badge-text').textContent = meta.label;
+
+  el.querySelector('.detail').textContent = st.detail;
+
+  const cd = el.querySelector('.countdown');
+  if (st.countdownLabel && st.targetMs) {
+    cd.dataset.label = st.countdownLabel;
+    cd.dataset.target = st.targetMs;
+    cd.textContent = st.countdownLabel + ' ' + fmtDuration(st.targetMs - now.nowMs);
+    cd.hidden = false;
+  } else {
+    cd.hidden = true;
+    cd.removeAttribute('data-target');
+    cd.removeAttribute('data-label');
+  }
+
+  // 时间轴：仅当交易时段结构变化时才重绘色块+刻度，否则只移动当前时间虚线
+  const tl = el.querySelector('.timeline');
+  const key = tlKey(st.timelineSegs);
+  if (el.dataset.tlkey !== key) {
+    el.dataset.tlkey = key;
+    tl.innerHTML = renderTimeline(st.timelineSegs, now.minute);
+  } else {
+    const nowEl = tl.querySelector('.timeline-now');
+    if (nowEl) nowEl.style.left = (now.minute / 1440 * 100).toFixed(2) + '%';
+  }
+}
+
+// 增量更新所有行情数字（不重建 DOM）
+function updateQuotes() {
+  document.querySelectorAll('.stat[data-market]').forEach((el) => {
+    const v = quoteValue(el.dataset.market, el.dataset.code);
+    el.querySelector('.stat-val').textContent = fmtPrice(v.price);
+    const pctEl = el.querySelector('.stat-pct');
+    pctEl.textContent = fmtPct(v.pct);
+    pctEl.className = 'stat-pct ' + (v.pct == null ? 'flat' : (v.pct > 0 ? 'up' : (v.pct < 0 ? 'down' : 'flat')));
+  });
+}
+
+let lastOrder = [];
+
+// 首次构建全部卡片
+function buildCards(ordered, now) {
+  let html = '';
+  for (const m of ordered) html += renderCard(m, statusFns[m.id](now), now);
+  document.getElementById('grid').innerHTML = html;
+  lastOrder = ordered.map(m => m.id);
+  updateQuotes();
+}
+
+// 每分钟刷新：仅当排序变化时才重建，否则增量更新
+function refresh() {
+  const now = beijingNow();
+  updateHeader(now);
+
   const ordered = [...MARKETS].sort((a, b) => {
     if (a.id === 'crypto') return -1;
     if (b.id === 'crypto') return 1;
     return nextOpenMs(a, now) - nextOpenMs(b, now);
   });
+  const newOrder = ordered.map(m => m.id);
 
-  let html = '';
-  for (const m of ordered) {
-    html += renderCard(m, statusFns[m.id](now), now);
+  if (newOrder.join(',') !== lastOrder.join(',')) {
+    buildCards(ordered, now); // 排序变化（开盘/收盘瞬间），重建一次
+    return;
   }
-  document.getElementById('grid').innerHTML = html;
 
-  renderLegend();
-  renderSrc();
+  const grid = document.getElementById('grid');
+  for (const m of ordered) {
+    const el = grid.querySelector('.card[data-id="' + m.id + '"]');
+    if (el) patchCard(el, m, statusFns[m.id](now), now);
+  }
 }
 
 function updateClock() {
@@ -559,9 +628,11 @@ function updateCountdowns() {
 
 // ---------- 启动 ----------
 updateClock();
-renderAll();
+renderLegend();
+renderSrc();
+refresh();
 setInterval(updateClock, 1000);
 setInterval(updateCountdowns, 1000);
-setInterval(renderAll, 60000);
-fetchQuotes().then(renderAll);
-setInterval(() => fetchQuotes().then(renderAll), 60000);
+setInterval(refresh, 60000);
+fetchQuotes().then(updateQuotes);
+setInterval(() => fetchQuotes().then(updateQuotes), 60000);
