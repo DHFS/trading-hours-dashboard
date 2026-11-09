@@ -58,7 +58,9 @@ function fmtDuration(ms) {
 }
 
 function fmtPrice(v) {
-  if (v == null) return '--';
+  // 收盘时展示最近一次成交价，盘前/盘中/盘后/隔夜展示最新价（均为接口返回的"最新价"）。
+  // 无有效价格（null/NaN/0）时显示占位符，避免误导。
+  if (v == null || !isFinite(v) || v <= 0) return '--';
   return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function fmtPct(v) {
@@ -295,6 +297,37 @@ function cryptoStatus() {
   };
 }
 
+// 每个市场的"下一次开盘"时间戳（用于排序：距离开盘越近越靠前）。
+// 已开盘的市场返回 now.nowMs（距离视为 0，排在最前）。
+function nextOpenMs(m, now) {
+  if (m.id === 'crypto') return now.nowMs;
+
+  if (m.id === 'us') {
+    const offset = usIsDST(now.nowMs) ? 4 : 5;
+    const etMs = now.nowMs - offset * 3600e3;
+    const et = new Date(etMs);
+    const etKey = et.getUTCFullYear() + '-' + pad(et.getUTCMonth() + 1) + '-' + pad(et.getUTCDate());
+    const etMin = et.getUTCHours() * 60 + et.getUTCMinutes();
+    const isEarly = HOLIDAYS.usEarly.includes(etKey);
+    const OPEN_E = isEarly ? 780 : 960; // 常规交易区间上界（美东 16:00 / 提前收盘 13:00）
+    if (usIsTradingDay(etKey) && etMin >= 570 && etMin < OPEN_E) return now.nowMs; // 盘中
+    if (usIsTradingDay(etKey) && etMin < 570) return usOpenMs(etKey);               // 盘前/隔夜→今日开盘
+    return usNextOpenMs(etKey);                                                     // 盘后/周末/休市
+  }
+
+  const cfg = CFG[m.id];
+  if (!isTradingDay(m.id, now.key)) return nextOpen(cfg, now.key);
+  if (m.id === 'hk' && HOLIDAYS.hkHalf.includes(now.key) && now.minute >= 720) return nextOpen(cfg, now.key);
+  for (const seg of cfg.sessions) {
+    if (seg.type === 'open' && now.minute >= seg.start && now.minute < seg.end) return now.nowMs; // 盘中
+  }
+  if (now.minute < cfg.openMinute) return bjMinuteToMs(now.key, cfg.openMinute);   // 开盘前
+  for (const seg of cfg.sessions) {
+    if (seg.type === 'open' && seg.start >= now.minute) return bjMinuteToMs(now.key, seg.start); // 午休→午盘开盘
+  }
+  return nextOpen(cfg, now.key); // 已收盘
+}
+
 const statusFns = {
   aShare: (now) => computeRegularMarket(CFG.aShare, now),
   hk: (now) => computeRegularMarket(CFG.hk, now),
@@ -442,8 +475,15 @@ function renderAll() {
 
   renderDayTip(now);
 
+  // 排序：加密货币永远置顶；其余按"距离开盘"升序（越近越靠前）
+  const ordered = [...MARKETS].sort((a, b) => {
+    if (a.id === 'crypto') return -1;
+    if (b.id === 'crypto') return 1;
+    return nextOpenMs(a, now) - nextOpenMs(b, now);
+  });
+
   let html = '';
-  for (const m of MARKETS) {
+  for (const m of ordered) {
     html += renderCard(m, statusFns[m.id](now), now);
   }
   document.getElementById('grid').innerHTML = html;

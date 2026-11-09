@@ -23,7 +23,7 @@
 
   /* 状态色（时段状态，非涨跌） */
   --c-open: #1863dc;       /* 交易中 */
-  --c-lunch: #b45309;      /* 午间休市 */
+  --c-lunch: #f5a623;      /* 午间休市（用户指定） */
   --c-pre: #0f766e;        /* 盘前 */
   --c-post: #6d28d9;       /* 盘后 */
   --c-overnight: #75758a;  /* 隔夜 */
@@ -187,7 +187,7 @@ body {
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
 
 .badge.st-open     { background: #eaf1ff; color: #1863dc; }
-.badge.st-lunch    { background: #fdf0dd; color: #b45309; }
+.badge.st-lunch    { background: #fdf1e0; color: #b45309; }
 .badge.st-pre      { background: #e0f2f1; color: #0f766e; }
 .badge.st-post     { background: #f1eafa; color: #6d28d9; }
 .badge.st-overnight{ background: #f0f0f3; color: #75758a; }
@@ -263,12 +263,12 @@ body {
 /* 迷你时间轴（进度条） */
 .timeline { position: relative; }
 .timeline-bar {
-  display: flex; height: 8px; border-radius: 4px; overflow: hidden;
+  display: flex; height: 24px; border-radius: 8px; overflow: hidden;
   background: #ececf0;
 }
 .timeline-now {
-  position: absolute; top: -3px; width: 2px; height: 14px;
-  background: var(--ink); border-radius: 1px;
+  position: absolute; top: -5px; width: 3px; height: 34px;
+  background: var(--ink); border-radius: 2px;
 }
 .tl-open     { background: var(--c-open); }
 .tl-lunch    { background: var(--c-lunch); }
