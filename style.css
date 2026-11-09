@@ -1,39 +1,38 @@
 /* ============================================================
-   交易时段看板 - 样式（MongoDB 风格 · 亮色表面 + 深海军蓝 hero）
-   参考：DESIGN-mongodb.md
-   - 白色画布 + 深海军蓝文字 + MongoDB 亮绿主信号
-   - 深海军蓝 hero band + pill 徽章，去重阴影，扁平
-   - 状态色用 MongoDB 语义色（绿/橙/蓝/紫/灰）
-   - 中国惯例：红涨绿跌（跌用 MongoDB 深绿 #00684a，与交易中亮绿区分）
+   交易时段看板 - 样式（深色主题 · 炭黑背景 + 时段状态色）
+   参考：用户提供截图（暗色看盘配色）
+   - 深炭黑背景 #121418 + 深灰卡片 #1a1d21
+   - 近白主文字，灰次要文字
+   - 时段状态色：交易中=蓝 / 午休=橙黄 / 盘前=橙 / 盘后=紫 / 隔夜=绿 / 非交易=深灰
+   - 进度条带关键时间刻度标注（竖线 + 时间标签），当前时间虚线贯穿
+   - 中国惯例：红涨绿跌
    ============================================================ */
 
 :root {
-  /* 表面与文字（MongoDB 令牌） */
-  --canvas: #ffffff;
-  --ink: #001e2b;          /* 深海军蓝主色 brand-teal-deep */
-  --text: #1c2d38;         /* charcoal */
-  --muted: #5c6c7a;        /* steel */
-  --faint: #7c8c9a;        /* stone */
-  --hairline: #e1e5e8;
-  --border-light: #eceff1; /* hairline-soft */
-  --stone: #f4f7f6;        /* surface-soft */
-  --pale: #f9fbfa;         /* surface */
+  /* 表面与文字（深色令牌） */
+  --canvas: #121418;        /* 页面背景：深炭黑 */
+  --card: #1a1d21;          /* 卡片表面 */
+  --stat: #23262b;          /* 统计块表面 */
+  --ink: #f5f6f7;           /* 近白主色 */
+  --text: #e8eaed;          /* 正文 */
+  --muted: #8a8f98;         /* 次要 */
+  --faint: #6b7078;         /* 更弱 */
+  --hairline: #2a2d32;      /* 边框 */
+  --border-light: #23262b;
+  --track: #23262b;         /* 时间轴非交易轨道 */
 
-  --action-blue: #3d4f9f;  /* accent-blue */
-  --deep-green: #00684a;   /* brand-green-dark */
-
-  /* 状态色（时段状态，非涨跌）—— MongoDB 语义 */
-  --c-open: #00ed64;       /* 交易中：MongoDB 亮绿（主信号） */
-  --c-lunch: #fa6e39;      /* 午间休市：accent-orange */
-  --c-pre: #3d4f9f;        /* 盘前：accent-blue */
-  --c-post: #7b3ff2;       /* 盘后：accent-purple */
-  --c-overnight: #5c6c7a;  /* 隔夜：steel */
-  --c-weekend: #a8b3bc;    /* 周末：muted */
-  --c-holiday: #001e2b;    /* 休市：深海军蓝（关闭/无活动） */
+  /* 时段状态色（时段状态，非涨跌） */
+  --c-open: #4a90e2;        /* 交易中：蓝 */
+  --c-lunch: #f5a623;       /* 午间休市：橙黄（用户指定） */
+  --c-pre: #ffa726;         /* 盘前：橙 */
+  --c-post: #9b6ef3;        /* 盘后：紫 */
+  --c-overnight: #4caf50;   /* 隔夜：绿 */
+  --c-weekend: #5c6670;     /* 周末：灰 */
+  --c-holiday: #f6465d;     /* 休市（节假日）：红（提醒） */
 
   /* 涨跌（中国惯例：红涨绿跌） */
-  --c-up: #dc2626;         /* 涨：红（金融惯例保留） */
-  --c-down: #00684a;       /* 跌：MongoDB 深绿 */
+  --c-up: #f6465d;          /* 涨：红 */
+  --c-down: #26a69a;        /* 跌：青绿（与隔夜草绿区分） */
 
   /* 字体 */
   --font-display: "Euclid Circular A", "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -56,11 +55,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 顶部公告条（MongoDB promo-banner：深海军蓝） */
+/* 顶部公告条 */
 .announce {
-  background: #001e2b;
-  color: #ffffff;
-  height: 36px;
+  background: #0b0d10;
+  color: #9aa3ad;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -69,6 +68,7 @@ body {
   letter-spacing: 0.14em;
   padding: 0 16px;
   text-align: center;
+  border-bottom: 1px solid #1c1f24;
 }
 
 .container { max-width: 1080px; margin: 0 auto; padding: 0 24px 64px; }
@@ -89,7 +89,7 @@ body {
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--deep-green);
+  color: var(--c-open);
 }
 .hero h1 {
   font-family: var(--font-display);
@@ -104,7 +104,7 @@ body {
 #day-tip {
   display: inline-flex; align-items: center; gap: 8px;
   margin-top: 16px; font-size: 13px; color: var(--text);
-  background: var(--stone); border: 1px solid var(--hairline);
+  background: var(--stat); border: 1px solid var(--hairline);
   padding: 8px 14px; border-radius: 999px;
 }
 .hero-right { text-align: right; }
@@ -125,11 +125,11 @@ body {
   margin-top: 8px;
 }
 
-/* 数据范围警告（MongoDB semantic-warning） */
+/* 数据范围警告 */
 .data-warning {
-  background: #fff8e0;
-  border: 1px solid #f0e0a8;
-  color: #946f3f;
+  background: #33260f;
+  border: 1px solid #4a3a1a;
+  color: #f5c46a;
   font-size: 13px;
   padding: 12px 16px;
   border-radius: 12px;
@@ -144,10 +144,10 @@ body {
 }
 
 .card {
-  background: var(--canvas);
+  background: var(--card);
   border: 1px solid var(--hairline);
   border-radius: 14px;
-  padding: 12px 20px;
+  padding: 14px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -187,13 +187,13 @@ body {
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
 
-.badge.st-open     { background: #c3f0d2; color: #00684a; }
-.badge.st-lunch    { background: #fde3d5; color: #c0431f; }
-.badge.st-pre      { background: #e3e6f4; color: #3d4f9f; }
-.badge.st-post     { background: #ede5fb; color: #7b3ff2; }
-.badge.st-overnight{ background: #eef1f3; color: #5c6c7a; }
-.badge.st-weekend  { background: #f2f4f5; color: #7c8c9a; }
-.badge.st-holiday  { background: #dfe8ed; color: #001e2b; }
+.badge.st-open     { background: rgba(74, 144, 226, 0.16); color: #8ab8f0; }
+.badge.st-lunch    { background: rgba(245, 166, 35, 0.16); color: #f5c46a; }
+.badge.st-pre      { background: rgba(255, 167, 38, 0.16); color: #ffc27a; }
+.badge.st-post     { background: rgba(155, 110, 243, 0.16); color: #c0a0f7; }
+.badge.st-overnight{ background: rgba(76, 175, 80, 0.16); color: #8fd494; }
+.badge.st-weekend  { background: rgba(138, 143, 152, 0.15); color: #a8b3bc; }
+.badge.st-holiday  { background: rgba(246, 70, 93, 0.15); color: #f08792; }
 
 .dot-open     { background: var(--c-open); }
 .dot-lunch    { background: var(--c-lunch); }
@@ -212,7 +212,7 @@ body {
 .stat {
   flex: 1 1 140px;
   min-width: 120px;
-  background: var(--pale);
+  background: var(--stat);
   border: 1px solid var(--border-light);
   border-radius: 9px;
   padding: 8px 13px;
@@ -261,22 +261,51 @@ body {
   white-space: nowrap;
 }
 
-/* 迷你时间轴（进度条） */
-.timeline { position: relative; }
+/* ---------- 迷你时间轴（进度条）+ 关键时间刻度 ---------- */
+.timeline {
+  position: relative;
+  padding-bottom: 22px;   /* 给底部时间标签留空间 */
+}
 .timeline-bar {
   display: flex; height: 16px; border-radius: 6px; overflow: hidden;
-  background: #eceff1;
+  background: var(--track);
 }
+/* 当前时间指示线（浅色虚线贯穿） */
 .timeline-now {
-  position: absolute; top: -3px; width: 2px; height: 22px;
-  background: var(--ink); border-radius: 2px;
+  position: absolute; top: -3px; bottom: 4px; width: 0;
+  border-left: 1px dashed rgba(255, 255, 255, 0.45);
+  pointer-events: none;
 }
+/* 关键时间刻度 */
+.timeline-marks {
+  position: absolute; left: 0; right: 0; top: 16px; height: 22px;
+  pointer-events: none;
+}
+.mark {
+  position: absolute; top: 0;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+}
+.mark .tick {
+  width: 1px; height: 6px;
+  background: #4a4f57;
+}
+.mark .lbl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--faint);
+  margin-top: 4px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
 .tl-open     { background: var(--c-open); }
 .tl-lunch    { background: var(--c-lunch); }
 .tl-pre      { background: var(--c-pre); }
 .tl-post     { background: var(--c-post); }
 .tl-overnight{ background: var(--c-overnight); }
-.tl-closed   { background: #eceff1; }
+.tl-closed   { background: var(--track); }
 
 /* ---------- 底部图例与说明 ---------- */
 footer { margin-top: 44px; }

@@ -69,6 +69,11 @@ function fmtPct(v) {
   return s + v.toFixed(2) + '%';
 }
 
+// 分钟数 -> "HH:MM"（用于进度条关键时间刻度标签）
+function fmtClock(minute) {
+  return pad(Math.floor(minute / 60)) + ':' + pad(minute % 60);
+}
+
 // ---------- 交易日判定（A股/港股/日经，按北京日期） ----------
 function isTradingDay(id, key) {
   const d = keyToDate(key);
@@ -140,10 +145,11 @@ function segCls(type) {
 }
 
 function buildSegs(cfg) {
+  // 交易日：开盘前/收盘后为「隔夜」（绿），非交易为 tl-overnight
   const segs = [];
-  if (cfg.openMinute > 0) segs.push({ start: 0, end: cfg.openMinute, cls: 'tl-closed' });
+  if (cfg.openMinute > 0) segs.push({ start: 0, end: cfg.openMinute, cls: 'tl-overnight' });
   for (const s of cfg.sessions) segs.push({ start: s.start, end: s.end, cls: segCls(s.type) });
-  if (cfg.closeMinute < 1440) segs.push({ start: cfg.closeMinute, end: 1440, cls: 'tl-closed' });
+  if (cfg.closeMinute < 1440) segs.push({ start: cfg.closeMinute, end: 1440, cls: 'tl-overnight' });
   return segs;
 }
 
@@ -162,11 +168,13 @@ function computeRegularMarket(cfg, now) {
   const segs = buildSegs(cfg);
 
   if (!isTrading) {
+    // 周末/节假日：全天非交易（深灰），无交易时段分段
+    const closedSegs = [{ start: 0, end: 1440, cls: 'tl-closed' }];
     if (now.weekday === 0 || now.weekday === 6) {
-      return { status: 'weekend', detail: '周末休市', countdownLabel: '距开盘', targetMs: nextOpen(cfg, now.key), timelineSegs: segs, holidayName: null };
+      return { status: 'weekend', detail: '周末休市', countdownLabel: '距开盘', targetMs: nextOpen(cfg, now.key), timelineSegs: closedSegs, holidayName: null };
     }
     const name = getHolidayName(cfg.id, now.key);
-    return { status: 'holiday', detail: name + ' · 休市', countdownLabel: '距开盘', targetMs: nextOpen(cfg, now.key), timelineSegs: segs, holidayName: name };
+    return { status: 'holiday', detail: name + ' · 休市', countdownLabel: '距开盘', targetMs: nextOpen(cfg, now.key), timelineSegs: closedSegs, holidayName: name };
   }
 
   // 港股半日市
@@ -246,7 +254,7 @@ function buildUsTimeline(offset) {
     return [
       { start: 0, end: 240, cls: 'tl-open' },
       { start: 240, end: 480, cls: 'tl-post' },
-      { start: 480, end: 960, cls: 'tl-closed' },
+      { start: 480, end: 960, cls: 'tl-overnight' },
       { start: 960, end: 1290, cls: 'tl-pre' },
       { start: 1290, end: 1440, cls: 'tl-open' }
     ];
@@ -254,7 +262,7 @@ function buildUsTimeline(offset) {
   return [ // 冬令时
     { start: 0, end: 300, cls: 'tl-open' },
     { start: 300, end: 540, cls: 'tl-post' },
-    { start: 540, end: 1020, cls: 'tl-closed' },
+    { start: 540, end: 1020, cls: 'tl-overnight' },
     { start: 1020, end: 1350, cls: 'tl-pre' },
     { start: 1350, end: 1440, cls: 'tl-open' }
   ];
@@ -391,9 +399,24 @@ function renderTimeline(segs, nowMinute) {
     const w = (s.end - s.start) / 1440 * 100;
     bar += '<div class="' + s.cls + '" style="flex:0 0 ' + w + '%"></div>';
   }
+  // 关键时间刻度：提取各交易时段分段的边界（去掉 0:00 与 24:00 两端点）
+  const marks = new Set();
+  for (const s of segs) {
+    if (s.start > 0 && s.start < 1440) marks.add(s.start);
+    if (s.end > 0 && s.end < 1440) marks.add(s.end);
+  }
+  let marksHtml = '';
+  for (const mm of [...marks].sort((a, b) => a - b)) {
+    const pct = (mm / 1440 * 100).toFixed(3);
+    marksHtml += '<span class="mark" style="left:' + pct + '%">' +
+      '<i class="tick"></i><span class="lbl">' + fmtClock(mm) + '</span></span>';
+  }
   const pct = (nowMinute / 1440 * 100).toFixed(2);
-  return '<div class="timeline"><div class="timeline-bar">' + bar + '</div>' +
-    '<div class="timeline-now" style="left:' + pct + '%"></div></div>';
+  return '<div class="timeline">' +
+    '<div class="timeline-bar">' + bar + '</div>' +
+    '<div class="timeline-now" style="left:' + pct + '%"></div>' +
+    '<div class="timeline-marks">' + marksHtml + '</div>' +
+    '</div>';
 }
 
 function renderStats(m) {
