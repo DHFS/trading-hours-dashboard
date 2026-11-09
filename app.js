@@ -76,6 +76,7 @@ function isTradingDay(id, key) {
   if (id === 'aShare') return !inRanges(key, HOLIDAYS.aShare);
   if (id === 'hk') return !HOLIDAYS.hk.includes(key);
   if (id === 'jp') return !HOLIDAYS.jp.includes(key);
+  if (id === 'kr') return !HOLIDAYS.kr.includes(key);
   return true;
 }
 
@@ -96,6 +97,7 @@ function getHolidayName(id, key) {
   if (id === 'us') return '美股休市日';
   if (id === 'hk') return '港股休市日';
   if (id === 'jp') return '东京休市日';
+  if (id === 'kr') return '首尔休市日';
   return '休市';
 }
 
@@ -123,6 +125,12 @@ const CFG = {
       { start: 480, end: 630, type: 'open', label: '早盘 08:00–10:30' },
       { start: 630, end: 690, type: 'lunch', label: '午间休市 10:30–11:30' },
       { start: 690, end: 870, type: 'open', label: '午盘 11:30–14:30' }
+    ]
+  },
+  kr: {
+    id: 'kr', openMinute: 480, closeMinute: 870,
+    sessions: [
+      { start: 480, end: 870, type: 'open', label: '交易 08:00–14:30' }
     ]
   }
 };
@@ -332,6 +340,7 @@ const statusFns = {
   aShare: (now) => computeRegularMarket(CFG.aShare, now),
   hk: (now) => computeRegularMarket(CFG.hk, now),
   jp: (now) => computeRegularMarket(CFG.jp, now),
+  kr: (now) => computeRegularMarket(CFG.kr, now),
   us: (now) => usStatus(now),
   crypto: () => cryptoStatus()
 };
@@ -480,7 +489,7 @@ function renderLegend() {
 function renderSrc() {
   document.getElementById('src').innerHTML =
     '行情数据来源：东方财富（指数）、Binance 官方镜像（加密货币），可能存在延迟，仅供参考。<br>' +
-    '节假日数据来源：上交所 / 港交所 / JPX / NYSE 官方日历，核实于 2026-11-09，覆盖 ' + DATA_YEAR + ' 年。' +
+    '节假日数据来源：上交所 / 港交所 / JPX / KRX / NYSE 官方日历，核实于 2026-11-09，覆盖 ' + DATA_YEAR + ' 年。' +
     '本页面不构成任何投资建议。';
 }
 
