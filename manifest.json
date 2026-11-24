@@ -1,0 +1,15 @@
+{
+  "name": "交易时段看板",
+  "short_name": "交易时钟",
+  "description": "以北京时间为基准的全球交易时段看板：A股、港股、日经、韩股、美股、加密货币实时开休市状态与行情。",
+  "start_url": "./index.html#crypto",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#121418",
+  "theme_color": "#121418",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

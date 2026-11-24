@@ -3,8 +3,31 @@
 // 北京时间基准（Asia/Shanghai），与浏览器/设备时区无关
 // ============================================================
 
+// ---------- 全屏单卡模式（URL hash #crypto/#us 等启用，body 加 .mode-fullscreen） ----------
+// 固定切换顺序：加密货币 → A股 → 港股 → 日经 → 韩股 → 美股
+const MARKET_IDS = ['crypto', 'aShare', 'hk', 'jp', 'kr', 'us', 'gold', 'brent', 'usdcnh', 'vix'];
+
+function readInitialMarket() {
+  const h = window.location.hash.replace('#', '');
+  if (MARKET_IDS.indexOf(h) >= 0) return h;
+  const q = new URLSearchParams(window.location.search).get('market'); // 兼容旧 ?market= 链接
+  if (q && MARKET_IDS.indexOf(q) >= 0) return q;
+  return null;
+}
+
+let currentMarket = readInitialMarket();
+const IS_FULLSCREEN = !!currentMarket;
+if (IS_FULLSCREEN) {
+  document.body.classList.add('mode-fullscreen');
+  if (window.location.hash !== '#' + currentMarket) {
+    history.replaceState(null, '', '#' + currentMarket);
+  }
+}
+
 // ---------- 工具函数 ----------
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+const WEEK_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 function beijingNow() {
   const nowMs = Date.now();
@@ -55,6 +78,13 @@ function fmtDuration(ms) {
   if (hh > 0) return hh + ' 小时 ' + mm + ' 分';
   if (mm > 0) return '约 ' + mm + ' 分钟';
   return '不足 1 分钟';
+}
+
+// 秒级倒计时 HH:MM:SS（时钟模式用，每秒跳动）
+function fmtClockCountdown(ms) {
+  if (ms <= 0) return '00:00:00';
+  const totalSec = Math.floor(ms / 1000);
+  return pad(Math.floor(totalSec / 3600)) + ':' + pad(Math.floor((totalSec % 3600) / 60)) + ':' + pad(totalSec % 60);
 }
 
 function fmtPrice(v) {
@@ -314,12 +344,37 @@ function cryptoStatus() {
   };
 }
 
+// ---------- 商品/货币（黄金、原油、外汇）：工作日 24h 连续交易，周末休市 ----------
+function commodityNextOpen(now, openMinute) {
+  let k = now.key;
+  for (let i = 0; i < 7; i++) {
+    k = addDays(k, 1);
+    const wd = keyToDate(k).weekday;
+    if (wd >= 1 && wd <= 5) return bjMinuteToMs(k, openMinute);
+  }
+  return bjMinuteToMs(addDays(now.key, 1), openMinute);
+}
+function commodityStatus(openMinute) {
+  return function (now) {
+    const isTrading = now.weekday >= 1 && now.weekday <= 5;
+    if (isTrading) {
+      return { status: 'open', detail: '24小时连续交易', countdownLabel: null, targetMs: null, timelineSegs: [{ start: 0, end: 1440, cls: 'tl-open' }], holidayName: null };
+    }
+    return { status: 'weekend', detail: '周末休市', countdownLabel: '距开盘', targetMs: commodityNextOpen(now, openMinute), timelineSegs: [{ start: 0, end: 1440, cls: 'tl-closed' }], holidayName: null };
+  };
+}
+
 // 每个市场的"下一次开盘"时间戳（用于排序：距离开盘越近越靠前）。
 // 已开盘的市场返回 now.nowMs（距离视为 0，排在最前）。
 function nextOpenMs(m, now) {
   if (m.id === 'crypto') return now.nowMs;
 
-  if (m.id === 'us') {
+  if (m.id === 'gold' || m.id === 'brent' || m.id === 'usdcnh') {
+    if (now.weekday >= 1 && now.weekday <= 5) return now.nowMs;
+    return commodityNextOpen(now, m.id === 'usdcnh' ? 300 : 360);
+  }
+
+  if (m.id === 'us' || m.id === 'vix') {
     const offset = usIsDST(now.nowMs) ? 4 : 5;
     const etMs = now.nowMs - offset * 3600e3;
     const et = new Date(etMs);
@@ -351,7 +406,15 @@ const statusFns = {
   jp: (now) => computeRegularMarket(CFG.jp, now),
   kr: (now) => computeRegularMarket(CFG.kr, now),
   us: (now) => usStatus(now),
-  crypto: () => cryptoStatus()
+  crypto: () => cryptoStatus(),
+  gold: commodityStatus(360),
+  brent: commodityStatus(360),
+  usdcnh: commodityStatus(300),
+  vix: (now) => {
+    const st = usStatus(now);
+    if (st.detail === '美股休市日') { st.detail = 'VIX 休市日'; st.holidayName = 'VIX 休市日'; }
+    return st;
+  }
 };
 
 // ---------- 行情 ----------
@@ -362,26 +425,154 @@ let quotes = {};
 let closes = {};
 let crypto = {};
 
-async function fetchQuotes() {
-  // 1) 指数行情：东财批量接口。f2=最新价 f3=涨跌幅 f18=昨收 f12=短代码（均需 ÷100）
-  const secids = [];
-  for (const m of MARKETS) {
-    for (const q of m.quotes) if (q.secid) secids.push(q.secid);
-  }
+// ---------- 行情本地缓存（接口失败时兜底显示最近一次成功数据） ----------
+const CACHE_KEY = 'thd_quotes_cache_v1';
+function loadCache() {
   try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return;
+    const c = JSON.parse(raw);
+    if (c && c.quotes) quotes = c.quotes;
+    if (c && c.closes) closes = c.closes;
+    if (c && c.crypto) crypto = c.crypto;
+  } catch (e) { /* 忽略缓存解析错误 */ }
+}
+function saveCache() {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ quotes: quotes, closes: closes, crypto: crypto, ts: Date.now() }));
+  } catch (e) { /* 忽略写入错误 */ }
+}
+
+// 构建数据源代码 -> 内部短代码（key）的映射
+function buildSourceMaps() {
+  const tencentMap = {};
+  const yahooMap = {};
+  const etfMap = {};   // 腾讯ETF代码 -> { code: 内部短代码, base: 指数昨收基准点位 }
+  const emSecid = {};  // 日经/KOSPI 的 secid -> 内部短代码（用于东财 stock/get 精准请求）
+  const emPrec = {};   // 东财短代码 -> 小数位（价格需 ÷10^prec；外汇 4 位，其余 2 位）
+  for (const m of MARKETS) {
+    for (const q of m.quotes) {
+      const code = q.secid ? q.secid.split('.')[1] : q.label;
+      if (q.tencent) tencentMap[q.tencent] = code;
+      if (q.yahoo) yahooMap[q.yahoo] = code;
+      if (q.etf) etfMap[q.etf] = { code: code, base: q.base };
+      if (q.secid) emPrec[code] = q.prec || 2;
+      if (q.secid && (q.secid === '100.N225' || q.secid === '100.KS11')) emSecid[q.secid] = code;
+    }
+  }
+  return { tencentMap, yahooMap, etfMap, emSecid, emPrec };
+}
+
+async function fetchQuotes() {
+  const { tencentMap, yahooMap, etfMap, emSecid, emPrec } = buildSourceMaps();
+  const etfPct = {}; // 内部短代码 -> 腾讯ETF当日涨跌幅(%)，用于日经/KOSPI 兜底估算
+
+  // 1) A股/港股/美股 + 日经/KOSPI的ETF：腾讯 qt.gtimg.cn（支持 CORS、稳定）。返回 GBK，字段以 ~ 分隔：[3]=最新价 [4]=昨收
+  const tcodes = Object.keys(tencentMap).concat(Object.keys(etfMap));
+  if (tcodes.length) {
+    try {
+      const r = await fetch('https://qt.gtimg.cn/q=' + tcodes.join(','));
+      const buf = await r.arrayBuffer();
+      let text;
+      try { text = new TextDecoder('gbk').decode(buf); }
+      catch (e) { text = new TextDecoder('utf-8').decode(buf); }
+      const re = /v_(\w+)="([^"]*)"/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        const code = tencentMap[m[1]];
+        const etf = etfMap[m[1]];
+        const p = m[2].split('~');
+        const price = parseFloat(p[3]);
+        const prev = parseFloat(p[4]);
+        if (code) {
+          if (isFinite(price) && price > 0) quotes[code] = { price: price };
+          if (isFinite(prev) && prev > 0) closes[code] = prev;
+        } else if (etf) {
+          // ETF：记录当日涨跌幅，用于日经/KOSPI 无精准数据时的兜底估算
+          if (isFinite(price) && isFinite(prev) && prev > 0) {
+            etfPct[etf.code] = (price - prev) / prev * 100;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('指数行情获取失败（腾讯）', e);
+    }
+  }
+
+  // 2) 日经/韩股：Yahoo Finance chart 接口（支持 CORS）
+  for (const yc of Object.keys(yahooMap)) {
+    const code = yahooMap[yc];
+    try {
+      const r = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(yc) + '?interval=1d&range=1d');
+      const j = await r.json();
+      const meta = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+      if (meta) {
+        const price = meta.regularMarketPrice;
+        const prev = meta.chartPreviousClose;
+        if (isFinite(price) && price > 0) quotes[code] = { price: price };
+        if (isFinite(prev) && prev > 0) closes[code] = prev;
+      }
+    } catch (e) {
+      console.warn('指数行情获取失败（Yahoo ' + yc + '）', e);
+    }
+  }
+
+  // 3) 兜底：东方财富（仅补充上面未取到的 code；f2=最新价 f3=涨跌幅 f18=昨收 f12=短代码，均需 ÷100）
+  try {
+    const secids = [];
+    for (const m of MARKETS) {
+      for (const q of m.quotes) if (q.secid) secids.push(q.secid);
+    }
     const url = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + secids.join(',') + '&fields=f2,f3,f18,f12,f14';
     const r = await fetch(url);
     const j = await r.json();
     if (j && j.data && j.data.diff) {
       for (const it of j.data.diff) {
-        quotes[it.f12] = { price: it.f2 / 100, pct: it.f3 / 100 };
-        closes[it.f12] = it.f18 / 100;
+        if (quotes[it.f12] && isFinite(quotes[it.f12].price) && quotes[it.f12].price > 0) continue; // 已有数据不覆盖
+        const prec = emPrec[it.f12] || 2;
+        quotes[it.f12] = { price: it.f2 / Math.pow(10, prec), pct: it.f3 / 100 };
+        closes[it.f12] = it.f18 / Math.pow(10, prec);
       }
     }
   } catch (e) {
-    console.warn('指数行情获取失败（东方财富）', e);
+    console.warn('指数行情获取失败（东方财富兜底）', e);
   }
-  // 2) 加密货币：Binance 官方数据镜像（api.binance.com 被墙，改用镜像域名）
+
+  // 3.5) 日经/KOSPI 精准源：东财 stock/get（f43=最新价 f60=昨收 f170=涨跌幅 f152=小数位）。多域名轮换提高成功率
+  const emHosts = ['https://push2delay.eastmoney.com', 'https://push2his.eastmoney.com', 'https://push2.eastmoney.com'];
+  for (const secid of Object.keys(emSecid)) {
+    const code = emSecid[secid];
+    if (quotes[code] && isFinite(quotes[code].price) && quotes[code].price > 0) continue; // 已有精准数据
+    for (const host of emHosts) {
+      try {
+        const r = await fetch(host + '/api/qt/stock/get?secid=' + secid + '&fields=f43,f57,f58,f60,f169,f170,f152');
+        const j = await r.json();
+        const d = j && j.data;
+        if (d && isFinite(d.f43) && d.f43 > 0) {
+          const prec = Math.pow(10, d.f152 || 2);
+          quotes[code] = { price: d.f43 / prec, pct: isFinite(d.f170) ? d.f170 / 100 : null };
+          if (isFinite(d.f60) && d.f60 > 0) closes[code] = d.f60 / prec;
+          break;
+        }
+      } catch (e) { /* 换下一个域名重试 */ }
+    }
+  }
+
+  // 3.8) 日经/KOSPI 兜底估算：东财/Yahoo 都失败时，用腾讯ETF当日涨跌幅 × 昨收基准 估算指数点位
+  for (const m of MARKETS) {
+    for (const q of m.quotes) {
+      if (!q.etf) continue;
+      const code = q.secid ? q.secid.split('.')[1] : q.label;
+      if (quotes[code] && isFinite(quotes[code].price) && quotes[code].price > 0) continue; // 已有精准数据
+      if (etfPct[code] === undefined) continue;
+      const prev = (isFinite(closes[code]) && closes[code] > 0) ? closes[code] : (q.base || 0);
+      if (prev > 0) {
+        quotes[code] = { price: prev * (1 + etfPct[code] / 100), pct: etfPct[code] };
+      }
+    }
+  }
+
+  // 4) 加密货币：Binance 官方数据镜像（api.binance.com 被墙，改用镜像域名）
   try {
     const r = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22%5D');
     const arr = await r.json();
@@ -394,7 +585,7 @@ async function fetchQuotes() {
 }
 
 // ---------- 渲染 ----------
-function renderTimeline(segs, nowMinute) {
+function renderTimeline(segs, nowMinute, showNow) {
   let bar = '';
   for (const s of segs) {
     const w = (s.end - s.start) / 1440 * 100;
@@ -413,8 +604,9 @@ function renderTimeline(segs, nowMinute) {
       '<i class="tick"></i><span class="lbl">' + fmtClock(mm) + '</span></span>';
   }
   const pct = (nowMinute / 1440 * 100).toFixed(2);
+  const nowEl = showNow === false ? '' : '<div class="timeline-now" style="left:' + pct + '%"></div>';
   return '<div class="timeline-bar">' + bar + '</div>' +
-    '<div class="timeline-now" style="left:' + pct + '%"></div>' +
+    nowEl +
     '<div class="timeline-marks">' + marksHtml + '</div>';
 }
 
@@ -466,7 +658,11 @@ const ICONS = {
   jp: '🇯🇵',
   kr: '🇰🇷',
   us: '🇺🇸',
-  crypto: '<span class="btc">₿</span>'
+  crypto: '<span class="btc">₿</span>',
+  gold: '🥇',
+  brent: '🛢️',
+  usdcnh: '💱',
+  vix: '📉'
 };
 
 function renderCard(m, st, now) {
@@ -480,12 +676,12 @@ function renderCard(m, st, now) {
   } else {
     cd = '<span class="countdown" hidden></span>';
   }
-  const timeline = renderTimeline(st.timelineSegs, now.minute);
+  const timeline = renderTimeline(st.timelineSegs, now.minute, m.id !== 'crypto');
 
   return '<article class="card" data-id="' + m.id + '" data-tlkey="' + tlKey(st.timelineSegs) + '">' +
     '<header class="card-head">' +
       '<div class="card-title-wrap">' +
-        '<div class="card-kicker">' + m.sub + '</div>' +
+        (m.sub ? '<div class="card-kicker">' + m.sub + '</div>' : '') +
         '<h2 class="card-title">' + m.name + '</h2>' +
       '</div>' +
       '<div class="card-head-right">' +
@@ -496,9 +692,90 @@ function renderCard(m, st, now) {
     '<div class="stats">' + statsHtml + '</div>' +
     '<div class="card-foot">' +
       '<div class="detail-line"><span class="detail">' + st.detail + '</span>' + cd + '</div>' +
-      '<div class="timeline">' + timeline + '</div>' +
     '</div>' +
+    '<div class="timeline">' + timeline + '</div>' +
     '</article>';
+}
+
+// ---------- 全屏时钟模式渲染（hash 路由 + 单击/滑动切换） ----------
+function renderDots(activeId) {
+  let html = '';
+  for (const id of MARKET_IDS) {
+    html += '<span class="dot-item' + (id === activeId ? ' active' : '') + '" data-id="' + id + '"></span>';
+  }
+  return '<div class="clock-dots">' + html + '</div>';
+}
+
+function renderClockCard(m, st, now) {
+  const meta = STATUS_META[st.status];
+  const badge = '<span class="badge st-' + st.status + '"><span class="dot dot-' + st.status + '"></span><span class="badge-text">' + meta.label + '</span></span>';
+
+  let statsHtml = '';
+  for (const q of m.quotes) {
+    const code = m.id === 'crypto' ? q.label : q.secid.split('.')[1];
+    statsHtml += '<div class="stat" data-market="' + m.id + '" data-code="' + code + '">' +
+      '<span class="stat-label">' + q.label + '</span>' +
+      '<span class="stat-val">--</span>' +
+      '<span class="stat-pct flat">--</span>' +
+      '</div>';
+  }
+
+  let cd = '';
+  if (st.countdownLabel && st.targetMs) {
+    cd = '<div class="clock-cd-label">' + st.countdownLabel + '</div>' +
+      '<div class="countdown clock-cd-time" data-label="' + st.countdownLabel + '" data-target="' + st.targetMs + '" data-mode="clock">' + fmtClockCountdown(st.targetMs - now.nowMs) + '</div>';
+  } else {
+    cd = '<div class="clock-cd-label">' + (st.detail || '24/7 全年无休') + '</div>' +
+      (m.id === 'crypto' ? '<div class="clock-cd-time">∞</div>' : '');
+  }
+
+  const timeline = renderTimeline(st.timelineSegs, now.minute, m.id !== 'crypto');
+  const dots = renderDots(m.id);
+
+  return '<article class="card' + (st.status === 'open' ? ' is-open' : '') + '" data-id="' + m.id + '" data-tlkey="' + tlKey(st.timelineSegs) + '">' +
+    '<header class="clock-head">' +
+      '<div class="clock-market">' +
+        '<span class="card-icon">' + (ICONS[m.id] || '') + '</span>' +
+        '<div class="clock-market-txt">' +
+          (m.sub ? '<div class="card-kicker">' + m.sub + '</div>' : '') +
+          '<h2 class="card-title">' + m.name + '</h2>' +
+        '</div>' +
+      '</div>' +
+      '<div class="clock-head-mid">' +
+        badge +
+      '</div>' +
+      '<div class="clock-bj">' +
+        '<div class="clock-bj-time" id="clock-bj">' + pad(now.h) + ':' + pad(now.min) + ':' + pad(now.s) + '</div>' +
+        '<div class="clock-bj-label" id="clock-bj-date">' + now.m + '月' + now.d + '日 ' + WEEK_CN[now.weekday] + ' · 北京时间</div>' +
+      '</div>' +
+    '</header>' +
+    '<div class="clock-countdown">' + cd + '</div>' +
+    '<div class="clock-stats">' + statsHtml + '</div>' +
+    '<div class="timeline">' + timeline + '</div>' +
+    dots +
+    '</article>';
+}
+
+function renderFullscreen(withFade) {
+  const now = beijingNow();
+  const m = MARKETS.find(function (x) { return x.id === currentMarket; });
+  if (!m) return;
+  const grid = document.getElementById('grid');
+  const html = renderClockCard(m, statusFns[m.id](now), now);
+
+  if (withFade && !grid.classList.contains('fade-out')) {
+    grid.classList.add('fade-out');
+    setTimeout(function () {
+      grid.innerHTML = html;
+      updateQuotes();
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { grid.classList.remove('fade-out'); });
+      });
+    }, 180);
+  } else {
+    grid.innerHTML = html;
+    updateQuotes();
+  }
 }
 
 function renderDayTip(now) {
@@ -550,19 +827,25 @@ function updateHeader(now) {
 // 增量更新单张卡片的状态（不重建 DOM）
 function patchCard(el, m, st, now) {
   const meta = STATUS_META[st.status];
+  el.classList.toggle('is-open', st.status === 'open');
   const badge = el.querySelector('.badge');
   badge.className = 'badge st-' + st.status;
   badge.querySelector('.dot').className = 'dot dot-' + st.status;
   badge.querySelector('.badge-text').textContent = meta.label;
 
-  el.querySelector('.detail').textContent = st.detail;
+  const detailEl = el.querySelector('.detail');
+  if (detailEl) detailEl.textContent = st.detail;
 
   const cd = el.querySelector('.countdown');
   if (st.countdownLabel && st.targetMs) {
     cd.dataset.label = st.countdownLabel;
     cd.dataset.target = st.targetMs;
-    cd.textContent = st.countdownLabel + ' ' + fmtDuration(st.targetMs - now.nowMs);
+    cd.textContent = cd.dataset.mode === 'clock'
+      ? fmtClockCountdown(st.targetMs - now.nowMs)
+      : st.countdownLabel + ' ' + fmtDuration(st.targetMs - now.nowMs);
     cd.hidden = false;
+    const cdLabel = el.querySelector('.clock-cd-label');
+    if (cdLabel) cdLabel.textContent = st.countdownLabel;
   } else {
     cd.hidden = true;
     cd.removeAttribute('data-target');
@@ -574,7 +857,7 @@ function patchCard(el, m, st, now) {
   const key = tlKey(st.timelineSegs);
   if (el.dataset.tlkey !== key) {
     el.dataset.tlkey = key;
-    tl.innerHTML = renderTimeline(st.timelineSegs, now.minute);
+    tl.innerHTML = renderTimeline(st.timelineSegs, now.minute, m.id !== 'crypto');
   } else {
     const nowEl = tl.querySelector('.timeline-now');
     if (nowEl) nowEl.style.left = (now.minute / 1440 * 100).toFixed(2) + '%';
@@ -604,15 +887,26 @@ function buildCards(ordered, now) {
 }
 
 // 每分钟刷新：仅当排序变化时才重建，否则增量更新
-function refresh() {
-  const now = beijingNow();
-  updateHeader(now);
-
-  const ordered = [...MARKETS].sort((a, b) => {
+function orderedMarkets(now) {
+  if (IS_FULLSCREEN) return MARKETS.filter(m => m.id === currentMarket);
+  return [...MARKETS].sort((a, b) => {
     if (a.id === 'crypto') return -1;
     if (b.id === 'crypto') return 1;
     return nextOpenMs(a, now) - nextOpenMs(b, now);
   });
+}
+
+function refresh() {
+  const now = beijingNow();
+  if (IS_FULLSCREEN) {
+    const m = MARKETS.find(function (x) { return x.id === currentMarket; });
+    const el = document.getElementById('grid').querySelector('.card[data-id="' + currentMarket + '"]');
+    if (el) patchCard(el, m, statusFns[m.id](now), now);
+    return;
+  }
+  updateHeader(now);
+
+  const ordered = orderedMarkets(now);
   const newOrder = ordered.map(m => m.id);
 
   if (newOrder.join(',') !== lastOrder.join(',')) {
@@ -629,24 +923,107 @@ function refresh() {
 
 function updateClock() {
   const now = beijingNow();
-  document.getElementById('clock').textContent = pad(now.h) + ':' + pad(now.min) + ':' + pad(now.s);
+  const main = document.getElementById('clock');
+  if (main) main.textContent = pad(now.h) + ':' + pad(now.min) + ':' + pad(now.s);
+  const fs = document.getElementById('clock-bj');
+  if (fs) fs.textContent = pad(now.h) + ':' + pad(now.min) + ':' + pad(now.s);
+  const fd = document.getElementById('clock-bj-date');
+  if (fd) fd.textContent = now.m + '月' + now.d + '日 ' + WEEK_CN[now.weekday] + ' · 北京时间';
 }
 
 function updateCountdowns() {
   const nowMs = Date.now();
   document.querySelectorAll('.countdown[data-target]').forEach((el) => {
     const t = +el.dataset.target;
-    el.textContent = el.dataset.label + ' ' + fmtDuration(t - nowMs);
+    el.textContent = el.dataset.mode === 'clock'
+      ? fmtClockCountdown(t - nowMs)
+      : el.dataset.label + ' ' + fmtDuration(t - nowMs);
+  });
+}
+
+// ---------- 全屏切换：手势 + hash 路由 ----------
+function nextMarket() {
+  const idx = MARKET_IDS.indexOf(currentMarket);
+  switchMarket(MARKET_IDS[(idx + 1) % MARKET_IDS.length]);
+}
+function prevMarket() {
+  const idx = MARKET_IDS.indexOf(currentMarket);
+  switchMarket(MARKET_IDS[(idx - 1 + MARKET_IDS.length) % MARKET_IDS.length]);
+}
+function switchMarket(id) {
+  if (id === currentMarket) return;
+  window.location.hash = id; // 触发 hashchange → renderFullscreen(true)
+}
+window.addEventListener('hashchange', function () {
+  if (!IS_FULLSCREEN) return;
+  const id = window.location.hash.replace('#', '');
+  if (MARKET_IDS.indexOf(id) >= 0 && id !== currentMarket) {
+    currentMarket = id;
+    renderFullscreen(true);
+  }
+});
+
+function attachFullscreenGestures() {
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+  function handleDot(e) {
+    const dot = e.target.closest && e.target.closest('.dot-item');
+    if (dot) { switchMarket(dot.dataset.id); return true; }
+    return false;
+  }
+
+  if (isTouch) {
+    let sx = 0, sy = 0, moved = false;
+    document.body.addEventListener('touchstart', function (e) {
+      const t = e.touches[0]; sx = t.clientX; sy = t.clientY; moved = false;
+    }, { passive: true });
+    document.body.addEventListener('touchmove', function (e) {
+      const t = e.touches[0];
+      if (Math.abs(t.clientX - sx) > 8 || Math.abs(t.clientY - sy) > 8) moved = true;
+    }, { passive: true });
+    document.body.addEventListener('touchend', function (e) {
+      if (handleDot(e)) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - sx, dy = t.clientY - sy;
+      if (!moved) { nextMarket(); }
+      else if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { if (dx < 0) nextMarket(); else prevMarket(); }
+    }, { passive: true });
+  } else {
+    document.body.addEventListener('click', function (e) {
+      if (handleDot(e)) return;
+      if (e.target.closest && e.target.closest('.clock-dots')) return;
+      nextMarket();
+    });
+  }
+}
+
+function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  navigator.wakeLock.request('screen').then(function () {
+    console.log('屏幕常亮已启用');
+  }).catch(function () {
+    console.log('屏幕常亮请求被拒绝（需用户手势或系统设置）');
   });
 }
 
 // ---------- 启动 ----------
+loadCache(); // 先读缓存，渲染时立即显示最近一次成功数据（接口未恢复也不空白）
+if (IS_FULLSCREEN) {
+  renderFullscreen(false);
+  attachFullscreenGestures();
+  document.addEventListener('click', requestWakeLock, { once: true });
+  document.addEventListener('touchstart', requestWakeLock, { once: true });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) requestWakeLock();
+  });
+} else {
+  renderLegend();
+  renderSrc();
+  refresh();
+}
 updateClock();
-renderLegend();
-renderSrc();
-refresh();
 setInterval(updateClock, 1000);
 setInterval(updateCountdowns, 1000);
 setInterval(refresh, 60000);
-fetchQuotes().then(updateQuotes);
-setInterval(() => fetchQuotes().then(updateQuotes), 60000);
+fetchQuotes().then(function () { saveCache(); updateQuotes(); });
+setInterval(function () { fetchQuotes().then(function () { saveCache(); updateQuotes(); }); }, 60000);

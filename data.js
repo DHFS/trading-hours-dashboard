@@ -73,46 +73,79 @@ const MARKETS = [
     name: 'A股',
     sub: '沪深',
     quotes: [
-      { label: '上证', secid: '1.000001' },
-      { label: '深证', secid: '0.399001' },
-      { label: '创业板', secid: '0.399006' }
+      { label: '上证', secid: '1.000001', tencent: 'sh000001' },
+      { label: '深证', secid: '0.399001', tencent: 'sz399001' },
+      { label: '创业板', secid: '0.399006', tencent: 'sz399006' }
     ]
   },
   {
     id: 'hk',
     name: '港股',
     sub: 'HKEX',
-    quotes: [{ label: '恒生', secid: '100.HSI' }]
+    quotes: [{ label: '恒生', secid: '100.HSI', tencent: 'hkHSI' }]
   },
   {
     id: 'jp',
     name: '日经',
     sub: 'JPX',
-    quotes: [{ label: '日经225', secid: '100.N225' }]
+    quotes: [{ label: '日经225', secid: '100.N225', yahoo: '^N225', etf: 'sh513880', base: 56436.65 }]
   },
   {
     id: 'kr',
     name: '韩股',
     sub: 'KRX',
-    quotes: [{ label: 'KOSPI', secid: '100.KS11' }]
+    quotes: [{ label: 'KOSPI', secid: '100.KS11', yahoo: '^KS11', etf: 'hk03121', base: 4708.54 }]
   },
   {
     id: 'us',
     name: '美股',
     sub: 'NYSE / Nasdaq',
     quotes: [
-      { label: '标普500', secid: '100.SPX' },
-      { label: '纳斯达克', secid: '100.NDX' },
-      { label: '道琼斯', secid: '100.DJIA' }
+      { label: '标普500', secid: '100.SPX', tencent: 'usINX' },
+      { label: '纳斯达克', secid: '100.NDX', tencent: 'usNDX' },
+      { label: '道琼斯', secid: '100.DJIA', tencent: 'usDJI' }
     ]
   },
   {
     id: 'crypto',
     name: '加密货币',
-    sub: '24/7',
+    sub: '',
     quotes: [
       { label: 'BTC', binance: 'BTCUSDT' },
       { label: 'ETH', binance: 'ETHUSDT' }
+    ]
+  },
+  {
+    id: 'gold',
+    name: '黄金',
+    sub: 'COMEX · XAU',
+    quotes: [
+      { label: 'COMEX黄金', secid: '101.GC00Y' },
+      { label: '伦敦金', secid: '122.XAU' }
+    ]
+  },
+  {
+    id: 'brent',
+    name: '布伦特原油',
+    sub: 'ICE',
+    quotes: [
+      { label: '布伦特原油', secid: '112.B00Y' }
+    ]
+  },
+  {
+    id: 'usdcnh',
+    name: '美元离岸人民币',
+    sub: 'USDCNH',
+    quotes: [
+      { label: 'USDCNH', secid: '133.USDCNH', prec: 4 }
+    ]
+  },
+  {
+    id: 'vix',
+    name: 'VIX恐慌指数',
+    sub: 'CBOE',
+    quotes: [
+      { label: 'VIX', secid: '167.VIX' }
     ]
   }
 ];

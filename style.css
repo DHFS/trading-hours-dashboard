@@ -346,6 +346,193 @@ footer { margin-top: 40px; }
   border-top: 1px solid var(--hairline); padding-top: 16px;
 }
 
+/* ============================================================
+   全屏单卡模式（URL hash #crypto/#us 等启用，body 加 .mode-fullscreen）
+   桌面时钟风格：北京时间时钟 + 超大秒级倒计时 + 去卡片行情 + 纤细时间轴。
+   支持单击/左右滑动切换市场（固定顺序），底部极简分页圆点。
+   ============================================================ */
+.mode-fullscreen,
+.mode-fullscreen body { height: 100%; overflow: hidden; }
+
+.mode-fullscreen .announce,
+.mode-fullscreen .hero,
+.mode-fullscreen footer,
+.mode-fullscreen .data-warning { display: none; }
+
+/* 竖屏提示遮罩（仅全屏模式，竖持时提示横屏） */
+.rotate-hint { display: none; }
+@media (orientation: portrait) {
+  .mode-fullscreen .rotate-hint {
+    display: flex;
+    position: fixed; inset: 0; z-index: 999;
+    background: var(--canvas);
+    color: var(--ink);
+    align-items: center; justify-content: center;
+    font-size: clamp(18px, 3vh, 24px);
+    text-align: center; padding: 0 8vw;
+  }
+}
+
+.mode-fullscreen .container {
+  max-width: none;
+  width: 100vw;
+  height: 100vh;
+  padding: 0;
+}
+
+.mode-fullscreen .grid {
+  height: 100%; gap: 0;
+  transition: opacity .18s ease;
+}
+.mode-fullscreen .grid.fade-out { opacity: 0; }
+
+.mode-fullscreen .card {
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  grid-template-areas:
+    "head"
+    "countdown"
+    "stats"
+    "timeline";
+}
+
+/* 顶部：市场信息 | 状态徽章 + 详情 | 北京时间 */
+.mode-fullscreen .clock-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3vw;
+  padding: 3vh 5vw 2vh;
+  border-bottom: 1px solid var(--hairline);
+}
+.mode-fullscreen .clock-market {
+  display: flex; align-items: center; gap: 1.6vw;
+  min-width: 0;
+}
+.mode-fullscreen .card-icon { font-size: clamp(36px, 8vh, 64px); line-height: 1; }
+.mode-fullscreen .card-icon .btc { font-size: clamp(36px, 8vh, 64px); }
+.mode-fullscreen .card-kicker { font-size: clamp(14px, 3vh, 22px); }
+.mode-fullscreen .card-title { font-size: clamp(28px, 6vh, 48px); }
+
+.mode-fullscreen .clock-head-mid {
+  display: flex; flex-direction: column; align-items: center; gap: 0.8vh;
+}
+.mode-fullscreen .badge { font-size: clamp(18px, 4vh, 28px); padding: 1.2vh 2vw; }
+.mode-fullscreen .clock-detail { font-size: clamp(15px, 3.5vh, 24px); color: var(--muted); }
+
+.mode-fullscreen .clock-bj {
+  display: flex; flex-direction: column; align-items: flex-end;
+}
+.mode-fullscreen .clock-bj-time {
+  font-size: clamp(32px, 7vh, 52px);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.mode-fullscreen .clock-bj-label {
+  font-size: clamp(14px, 3vh, 20px);
+  color: var(--faint);
+  letter-spacing: 0.08em;
+  margin-top: 0.6vh;
+}
+
+/* 中部：超大秒级倒计时（主角，适度收紧） */
+.mode-fullscreen .clock-countdown {
+  grid-area: countdown;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1.5vh;
+}
+.mode-fullscreen .clock-cd-label {
+  font-size: clamp(18px, 4vh, 30px);
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.mode-fullscreen .clock-cd-time {
+  font-size: clamp(48px, 14vh, 120px);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* 下部：去卡片行情数字浮排（细竖线分隔，字号放大） */
+.mode-fullscreen .clock-stats {
+  grid-area: stats;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mode-fullscreen .clock-stats .stat {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 1.2vh;
+  padding: 0 4vw;
+  background: none; border: none; border-radius: 0;
+}
+.mode-fullscreen .clock-stats .stat + .stat { border-left: 1px solid var(--hairline); }
+.mode-fullscreen .stat-label { font-size: clamp(17px, 4vh, 28px); color: var(--muted); }
+.mode-fullscreen .stat-val { font-size: clamp(42px, 10vh, 80px); }
+.mode-fullscreen .stat-pct { font-size: clamp(20px, 5vh, 34px); }
+
+/* 交易中（.is-open）：指数升级为主角、居中大字体，倒计时降级为次要放指数下方 */
+.mode-fullscreen .card.is-open {
+  grid-template-rows: auto 1fr auto auto;
+  grid-template-areas:
+    "head"
+    "stats"
+    "countdown"
+    "timeline";
+}
+.mode-fullscreen .card.is-open .stat-val { font-size: clamp(44px, 12vh, 104px); }
+.mode-fullscreen .card.is-open .stat-pct { font-size: clamp(24px, 5.5vh, 42px); }
+.mode-fullscreen .card.is-open .stat-label { font-size: clamp(18px, 4vh, 28px); }
+.mode-fullscreen .card.is-open .clock-stats .stat { gap: 1.8vh; padding: 0 3vw; }
+.mode-fullscreen .card.is-open .clock-cd-time { font-size: clamp(22px, 5.5vh, 40px); font-weight: 500; }
+.mode-fullscreen .card.is-open .clock-cd-label { font-size: clamp(14px, 3vh, 20px); }
+.mode-fullscreen .card.is-open .clock-countdown { gap: 0.8vh; }
+
+/* 底部：加粗时间轴（大色块）+ 放大时间刻度（适配 1 米观看距离） */
+.mode-fullscreen .timeline {
+  --bar-h: clamp(26px, 7vh, 48px);
+  grid-area: timeline;
+  align-self: end;
+  padding: 0 5vw 7vh;
+}
+.mode-fullscreen .timeline-bar { height: var(--bar-h); border-radius: 12px; }
+.mode-fullscreen .timeline-now { top: -6px; bottom: 6px; border-left-width: 2px; }
+.mode-fullscreen .timeline-marks { top: var(--bar-h); height: 4vh; }
+.mode-fullscreen .mark .tick { height: 10px; width: 2px; }
+.mode-fullscreen .mark .lbl { font-size: clamp(18px, 5vh, 30px); }
+
+/* 分页圆点（底部居中，当前高亮） */
+.mode-fullscreen .clock-dots {
+  position: absolute;
+  left: 50%; bottom: 0.8vh;
+  transform: translateX(-50%);
+  display: flex; gap: 1.6vw;
+  z-index: 5;
+}
+.mode-fullscreen .dot-item {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.mode-fullscreen .dot-item.active {
+  background: var(--ink);
+  transform: scale(1.3);
+}
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   .container { padding: 0 16px 48px; }
