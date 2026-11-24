@@ -275,9 +275,8 @@ body {
   transform: rotate(var(--t, 0deg)) translateY(var(--y, 0em));
   transform-origin: 50% 60%;
   will-change: transform;
+  opacity: 0.94; /* 规范 2.2：图层混合 0.92~0.96，叠印更通透 */
 }
-.stat[data-market="crypto"] .stat-val .bd-a { color: #5494EA; }          /* 亮天蓝 */
-.stat[data-market="crypto"] .stat-val .bd-b { color: #1A56B8; }          /* 深钴蓝 */
 .stat[data-market="crypto"] .stat-val .bd-sep { color: rgba(122, 196, 248, 0.55); } /* 分隔符浅青蓝 */
 
 /* ---------- 底部（详情 + 倒计时 + 时间轴），贴底对齐 ---------- */
@@ -513,7 +512,7 @@ footer { margin-top: 40px; }
 
 /* 时钟模式：BTC Float 数字巨大模式（加密卡片唯一主角，参考 iOS 待机时钟尺度） */
 .mode-fullscreen .stat[data-market="crypto"] .stat-val {
-  font-size: clamp(80px, 23vw, 250px);
+  font-size: clamp(88px, 26vw, 300px);
   font-weight: 900;
   letter-spacing: -0.08em;
   line-height: 0.9;

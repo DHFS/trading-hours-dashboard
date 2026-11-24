@@ -104,19 +104,31 @@ function fmtPct(v) {
   return s + v.toFixed(2) + '%';
 }
 
-// BTC 价格 - iOS StandBy "Float" 主题：拆分为独立数字字符，蓝白交替叠印（严格按 ios_standby_float.md）
+// BTC 双拼混色预设（进阶多色模式）：按「深A-亮B-亮A-深B」明暗节奏，D1~D4 循环分配（严格按 ios_standby_float.md 2.2 节）
+const BTC_PALETTES = [
+  { name: '蓝绿波普', colors: ['#0560BE', '#65DC84', '#549FF8', '#248A5E'] },
+  { name: '蓝橙撞色', colors: ['#569DF5', '#FF9E44', '#0A62C4', '#B85A14'] },
+  { name: '紫粉霓虹', colors: ['#4928B8', '#E26EC7', '#7C54F6', '#9E3686'] },
+  { name: '珊瑚暖阳', colors: ['#D9483B', '#FFDA4E', '#FF7B72', '#C98A18'] },
+  { name: '西瓜青柠', colors: ['#B53156', '#49D5DF', '#F4648A', '#1B8B96'] }
+];
+// 每次刷新网页时随机选择一个配色预设
+const btcPalette = BTC_PALETTES[Math.floor(Math.random() * BTC_PALETTES.length)];
+
+// BTC 价格 - iOS StandBy "Float" 主题：拆分为独立数字字符，多色叠印（严格按 ios_standby_float.md）
 function btcFloatHtml(str) {
   if (!str || str === '--') return str;
   // 每个数字独立的倾斜角(deg)与垂直错落(em)，按索引循环，营造"错落有致"的浮动感（参照 iOS StandBy Float 主题）
   const TILT = [-2.4, 1.6, -1.2, 2.2, -1.8, 1.4];
   const LIFT = [-0.04, 0.03, 0.045, -0.03, 0.035, -0.045];
+  const C = btcPalette.colors;
   let html = '';
   let n = 0;
   for (const ch of str) {
     if (ch >= '0' && ch <= '9') {
       const i = n % TILT.length;
-      // 数字：奇数位亮天蓝 / 偶数位深钴蓝，交替形成叠印高光；各带独立倾斜与错落
-      html += '<span class="bd-' + (n % 2 === 0 ? 'a' : 'b') + '" style="--t:' + TILT[i] + 'deg;--y:' + LIFT[i] + 'em">' + ch + '</span>';
+      // 数字：按 D1/D2/D3/D4 明暗节奏循环取色，各带独立倾斜与错落
+      html += '<span style="color:' + C[n % 4] + ';--t:' + TILT[i] + 'deg;--y:' + LIFT[i] + 'em">' + ch + '</span>';
       n++;
     } else {
       // 千分位逗号 / 小数点：浅青蓝，弱化
