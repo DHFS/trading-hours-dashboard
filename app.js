@@ -99,6 +99,24 @@ function fmtPct(v) {
   return s + v.toFixed(2) + '%';
 }
 
+// BTC 价格 - iOS StandBy "Float" 主题：拆分为独立数字字符，蓝白交替叠印（严格按 ios_standby_float.md）
+function btcFloatHtml(str) {
+  if (!str || str === '--') return str;
+  let html = '';
+  let n = 0;
+  for (const ch of str) {
+    if (ch >= '0' && ch <= '9') {
+      // 数字：奇数位亮天蓝 / 偶数位深钴蓝，交替形成叠印高光
+      html += '<span class="bd-' + (n % 2 === 0 ? 'a' : 'b') + '">' + ch + '</span>';
+      n++;
+    } else {
+      // 千分位逗号 / 小数点：浅青蓝，弱化
+      html += '<span class="bd-sep">' + ch + '</span>';
+    }
+  }
+  return html;
+}
+
 // 分钟数 -> "HH:MM"（用于进度条关键时间刻度标签）
 function fmtClock(minute) {
   return pad(Math.floor(minute / 60)) + ':' + pad(minute % 60);
@@ -554,7 +572,7 @@ async function fetchQuotes() {
 
   // 5) 加密货币：Binance 官方数据镜像（api.binance.com 被墙，改用镜像域名）
   try {
-    const r = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22%5D');
+    const r = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22%5D');
     const arr = await r.json();
     for (const it of arr) {
       crypto[it.symbol.replace('USDT', '')] = { price: +it.lastPrice, pct: +it.priceChangePercent };
@@ -848,7 +866,13 @@ function patchCard(el, m, st, now) {
 function updateQuotes() {
   document.querySelectorAll('.stat[data-market]').forEach((el) => {
     const v = quoteValue(el.dataset.market, el.dataset.code);
-    el.querySelector('.stat-val').textContent = fmtPrice(v.price);
+    const valEl = el.querySelector('.stat-val');
+    if (el.dataset.market === 'crypto') {
+      // 加密货币：Float 风格拆分数字渲染
+      valEl.innerHTML = btcFloatHtml(fmtPrice(v.price));
+    } else {
+      valEl.textContent = fmtPrice(v.price);
+    }
     const pctEl = el.querySelector('.stat-pct');
     pctEl.textContent = fmtPct(v.pct);
     pctEl.className = 'stat-pct ' + (v.pct == null ? 'flat' : (v.pct > 0 ? 'up' : (v.pct < 0 ? 'down' : 'flat')));

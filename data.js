@@ -111,8 +111,7 @@ const MARKETS = [
     name: '加密货币',
     sub: '',
     quotes: [
-      { label: 'BTC', binance: 'BTCUSDT' },
-      { label: 'ETH', binance: 'ETHUSDT' }
+      { label: 'BTC', binance: 'BTCUSDT' }
     ]
   },
   {

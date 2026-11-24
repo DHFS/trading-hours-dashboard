@@ -260,6 +260,20 @@ body {
 .down { color: var(--c-down); }
 .flat { color: var(--muted); }
 
+/* BTC 价格 - iOS StandBy "Float" 主题数字：圆润粗体 + 蓝色叠印 + 负字距 */
+.stat[data-market="crypto"] .stat-val {
+  font-family: "SF Pro Rounded", "ui-rounded", "Nunito", "Rubik", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums lining-nums;
+  display: inline-flex;
+}
+.stat[data-market="crypto"] .stat-val > span { mix-blend-mode: screen; }
+.stat[data-market="crypto"] .stat-val .bd-a { color: #5494EA; }          /* 亮天蓝 */
+.stat[data-market="crypto"] .stat-val .bd-b { color: #1A56B8; }          /* 深钴蓝 */
+.stat[data-market="crypto"] .stat-val .bd-sep { color: rgba(122, 196, 248, 0.55); } /* 分隔符浅青蓝 */
+
 /* ---------- 底部（详情 + 倒计时 + 时间轴），贴底对齐 ---------- */
 .card-foot {
   margin-top: auto;
@@ -290,10 +304,17 @@ body {
   display: flex; height: 16px; border-radius: 6px; overflow: hidden;
   background: var(--track);
 }
-/* 当前时间指示线（亮色虚线贯穿） */
+/* 当前时间指示：液态玻璃小竖条（半透明白色渐变 + 柔和发光 + 圆角） */
 .timeline-now {
-  position: absolute; top: -3px; bottom: 4px; width: 0;
-  border-left: 1px dashed rgba(255, 255, 255, 0.5);
+  position: absolute; top: -3px; height: 22px; width: 4px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.5) 45%,
+    rgba(255, 255, 255, 0.9) 100%);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.4),
+    inset 0 0 2px rgba(255, 255, 255, 0.7);
   pointer-events: none;
 }
 /* 关键时间刻度 */
@@ -484,6 +505,13 @@ footer { margin-top: 40px; }
 .mode-fullscreen .stat-val { font-size: clamp(42px, 10vh, 80px); }
 .mode-fullscreen .stat-pct { font-size: clamp(20px, 5vh, 34px); }
 
+/* 时钟模式：BTC Float 数字放大（加密卡片唯一主角） */
+.mode-fullscreen .stat[data-market="crypto"] .stat-val {
+  font-size: clamp(56px, 15vh, 132px);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+}
+
 /* 交易中（.is-open）：指数升级为主角、居中大字体，倒计时降级为次要放指数下方 */
 .mode-fullscreen .card.is-open {
   grid-template-rows: auto 1fr auto auto;
@@ -501,29 +529,33 @@ footer { margin-top: 40px; }
 .mode-fullscreen .card.is-open .clock-cd-label { font-size: clamp(14px, 3vh, 20px); }
 .mode-fullscreen .card.is-open .clock-countdown { gap: 0.8vh; }
 
-/* 底部：加粗时间轴（大色块）+ 放大时间刻度（适配 1 米观看距离） */
+/* 底部：加粗时间轴（大色块）。横屏时钟模式隐藏时刻标签，避免与分页圆点重叠 */
 .mode-fullscreen .timeline {
   --bar-h: clamp(26px, 7vh, 48px);
   grid-area: timeline;
   align-self: end;
-  padding: 0 5vw 7vh;
+  padding: 0 5vw 6vh;
 }
 .mode-fullscreen .timeline-bar { height: var(--bar-h); border-radius: 12px; }
-.mode-fullscreen .timeline-now { top: -6px; bottom: 6px; border-left-width: 2px; }
-.mode-fullscreen .timeline-marks { top: var(--bar-h); height: 4vh; }
-.mode-fullscreen .mark .tick { height: 10px; width: 2px; }
-.mode-fullscreen .mark .lbl { font-size: clamp(18px, 5vh, 30px); }
+.mode-fullscreen .timeline-now {
+  top: -6px;
+  height: calc(var(--bar-h) + 12px);
+  width: 5px;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.5),
+    inset 0 0 3px rgba(255, 255, 255, 0.8);
+}
+.mode-fullscreen .timeline-marks { display: none; }
 
-/* 分页圆点（底部居中，当前高亮） */
+/* 分页圆点（底部居中，当前高亮；适配 iPhone 底部 Home Indicator 安全区） */
 .mode-fullscreen .clock-dots {
   position: absolute;
-  left: 50%; bottom: 0.8vh;
+  left: 50%; bottom: calc(2vh + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
-  display: flex; gap: 1.6vw;
+  display: flex; gap: 1.8vw;
   z-index: 5;
 }
 .mode-fullscreen .dot-item {
-  width: 14px; height: 14px; border-radius: 50%;
+  width: 12px; height: 12px; border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
   cursor: pointer;
   transition: background .2s ease, transform .2s ease;
