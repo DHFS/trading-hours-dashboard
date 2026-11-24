@@ -705,6 +705,23 @@ function renderDots(activeId) {
 }
 
 function renderClockCard(m, st, now) {
+  // 加密货币：极简桌面时钟——价格是绝对主体。无导航栏、无时间轴，仅巨大价格 + 涨跌幅 + 24/7 全年无休。
+  if (m.id === 'crypto') {
+    return '<article class="card is-crypto-clock" data-id="crypto">' +
+      '<div class="crypto-stage">' +
+        '<div class="stat" data-market="crypto" data-code="BTC">' +
+          '<span class="stat-val">--</span>' +
+          '<span class="stat-pct flat">--</span>' +
+        '</div>' +
+        '<div class="crypto-meta">' +
+          '<span class="crypto-status"><span class="dot dot-open"></span>交易中</span>' +
+          '<span class="crypto-sub">24/7 全年无休</span>' +
+        '</div>' +
+      '</div>' +
+      renderDots('crypto') +
+    '</article>';
+  }
+
   const meta = STATUS_META[st.status];
   const badge = '<span class="badge st-' + st.status + '"><span class="dot dot-' + st.status + '"></span><span class="badge-text">' + meta.label + '</span></span>';
 
@@ -824,6 +841,7 @@ function updateHeader(now) {
 
 // 增量更新单张卡片的状态（不重建 DOM）
 function patchCard(el, m, st, now) {
+  if (m.id === 'crypto') return; // 加密货币极简时钟：状态恒定交易中，无徽章/倒计时/时间轴，跳过增量更新
   const meta = STATUS_META[st.status];
   el.classList.toggle('is-open', st.status === 'open');
   const badge = el.querySelector('.badge');

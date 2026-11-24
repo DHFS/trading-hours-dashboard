@@ -505,11 +505,67 @@ footer { margin-top: 40px; }
 .mode-fullscreen .stat-val { font-size: clamp(42px, 10vh, 80px); }
 .mode-fullscreen .stat-pct { font-size: clamp(20px, 5vh, 34px); }
 
-/* 时钟模式：BTC Float 数字放大（加密卡片唯一主角） */
+/* 时钟模式：BTC Float 数字巨大模式（加密卡片唯一主角，参考 iOS 待机时钟尺度） */
 .mode-fullscreen .stat[data-market="crypto"] .stat-val {
-  font-size: clamp(56px, 15vh, 132px);
+  font-size: clamp(72px, 21vw, 230px);
   font-weight: 900;
   letter-spacing: -0.06em;
+  line-height: 0.9;
+}
+
+/* 加密货币极简时钟：隐藏导航栏与时间轴，价格绝对主体，居中排布 */
+.mode-fullscreen .card.is-crypto-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4vh 4vw calc(5vh + env(safe-area-inset-bottom, 0px));
+}
+.mode-fullscreen .crypto-stage {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3vh;
+}
+.mode-fullscreen .is-crypto-clock .stat {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2vh;
+  padding: 0;
+  background: none;
+  border: none;
+}
+.mode-fullscreen .is-crypto-clock .stat-pct {
+  font-size: clamp(30px, 7vh, 54px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.mode-fullscreen .crypto-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.6vw;
+  margin-top: 1vh;
+}
+.mode-fullscreen .crypto-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: clamp(14px, 2.6vh, 20px);
+  color: #6FD99B;
+  background: rgba(61, 204, 112, 0.14);
+  padding: 0.6vh 1.4vw;
+  border-radius: 999px;
+}
+.mode-fullscreen .crypto-status .dot { width: 6px; height: 6px; }
+.mode-fullscreen .crypto-sub {
+  font-size: clamp(14px, 2.6vh, 20px);
+  color: var(--muted);
+  letter-spacing: 0.06em;
 }
 
 /* 交易中（.is-open）：指数升级为主角、居中大字体，倒计时降级为次要放指数下方 */
