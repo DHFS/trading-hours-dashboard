@@ -1006,4 +1006,5 @@ setInterval(updateClock, 1000);
 setInterval(updateCountdowns, 1000);
 setInterval(refresh, 60000);
 fetchQuotes().then(function () { saveCache(); updateQuotes(); });
-setInterval(function () { fetchQuotes().then(function () { saveCache(); updateQuotes(); }); }, 60000);
+// 行情轮询：5 分钟一次。东财对高频请求有 IP 级风控（空响应），1 分钟会触发封禁，故拉长间隔。
+setInterval(function () { fetchQuotes().then(function () { saveCache(); updateQuotes(); }); }, 300000);
