@@ -269,7 +269,13 @@ body {
   font-variant-numeric: tabular-nums lining-nums;
   display: inline-flex;
 }
-.stat[data-market="crypto"] .stat-val > span { mix-blend-mode: screen; }
+.stat[data-market="crypto"] .stat-val > span {
+  mix-blend-mode: screen;
+  display: inline-block;
+  transform: rotate(var(--t, 0deg)) translateY(var(--y, 0em));
+  transform-origin: 50% 60%;
+  will-change: transform;
+}
 .stat[data-market="crypto"] .stat-val .bd-a { color: #5494EA; }          /* 亮天蓝 */
 .stat[data-market="crypto"] .stat-val .bd-b { color: #1A56B8; }          /* 深钴蓝 */
 .stat[data-market="crypto"] .stat-val .bd-sep { color: rgba(122, 196, 248, 0.55); } /* 分隔符浅青蓝 */
@@ -509,7 +515,7 @@ footer { margin-top: 40px; }
 .mode-fullscreen .stat[data-market="crypto"] .stat-val {
   font-size: clamp(72px, 21vw, 230px);
   font-weight: 900;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.08em;
   line-height: 0.9;
 }
 

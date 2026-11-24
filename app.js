@@ -107,12 +107,16 @@ function fmtPct(v) {
 // BTC 价格 - iOS StandBy "Float" 主题：拆分为独立数字字符，蓝白交替叠印（严格按 ios_standby_float.md）
 function btcFloatHtml(str) {
   if (!str || str === '--') return str;
+  // 每个数字独立的倾斜角(deg)与垂直错落(em)，按索引循环，营造"错落有致"的浮动感（参照 iOS StandBy Float 主题）
+  const TILT = [-2.4, 1.6, -1.2, 2.2, -1.8, 1.4];
+  const LIFT = [-0.04, 0.03, 0.045, -0.03, 0.035, -0.045];
   let html = '';
   let n = 0;
   for (const ch of str) {
     if (ch >= '0' && ch <= '9') {
-      // 数字：奇数位亮天蓝 / 偶数位深钴蓝，交替形成叠印高光
-      html += '<span class="bd-' + (n % 2 === 0 ? 'a' : 'b') + '">' + ch + '</span>';
+      const i = n % TILT.length;
+      // 数字：奇数位亮天蓝 / 偶数位深钴蓝，交替形成叠印高光；各带独立倾斜与错落
+      html += '<span class="bd-' + (n % 2 === 0 ? 'a' : 'b') + '" style="--t:' + TILT[i] + 'deg;--y:' + LIFT[i] + 'em">' + ch + '</span>';
       n++;
     } else {
       // 千分位逗号 / 小数点：浅青蓝，弱化
