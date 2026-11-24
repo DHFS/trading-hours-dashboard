@@ -127,8 +127,9 @@ function btcFloatHtml(str) {
   for (const ch of str) {
     if (ch >= '0' && ch <= '9') {
       const i = n % TILT.length;
-      // 数字：按 D1/D2/D3/D4 明暗节奏循环取色，各带独立倾斜与错落
-      html += '<span style="color:' + C[n % 4] + ';--t:' + TILT[i] + 'deg;--y:' + LIFT[i] + 'em">' + ch + '</span>';
+      // 数字：按 D1/D2/D3/D4 明暗节奏循环取色；外层做静态倾斜错落，内层做呼吸浮动动画（相位错开，参照 4.1 节）
+      html += '<span class="dig" style="color:' + C[n % 4] + ';--t:' + TILT[i] + 'deg;--y:' + LIFT[i] + 'em">' +
+        '<span class="dig-f" style="animation-delay:-' + (n * 0.9).toFixed(1) + 's">' + ch + '</span></span>';
       n++;
     } else {
       // 千分位逗号 / 小数点：浅青蓝，弱化

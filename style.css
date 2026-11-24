@@ -269,13 +269,23 @@ body {
   font-variant-numeric: tabular-nums lining-nums;
   display: inline-flex;
 }
-.stat[data-market="crypto"] .stat-val > span {
+.stat[data-market="crypto"] .stat-val > .dig {
   mix-blend-mode: screen;
   display: inline-block;
   transform: rotate(var(--t, 0deg)) translateY(var(--y, 0em));
   transform-origin: 50% 60%;
   will-change: transform;
-  opacity: 0.94; /* 规范 2.2：图层混合 0.92~0.96，叠印更通透 */
+  opacity: 0.94; /* 规范 3.3：图层混合 0.92~0.96，叠印更通透 */
+}
+/* 呼吸浮动：内层数字做缓慢上下浮动 + 微幅旋转（周期 7s、±5px、±1.2deg，相位错开） */
+.stat[data-market="crypto"] .stat-val .dig-f {
+  display: inline-block;
+  animation: btc-breathe 7s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes btc-breathe {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-0.035em) rotate(1.2deg); }
 }
 .stat[data-market="crypto"] .stat-val .bd-sep { color: rgba(122, 196, 248, 0.55); } /* 分隔符浅青蓝 */
 
@@ -510,12 +520,13 @@ footer { margin-top: 40px; }
 .mode-fullscreen .stat-val { font-size: clamp(42px, 10vh, 80px); }
 .mode-fullscreen .stat-pct { font-size: clamp(20px, 5vh, 34px); }
 
-/* 时钟模式：BTC Float 数字巨大模式（加密卡片唯一主角，参考 iOS 待机时钟尺度） */
+/* 时钟模式：BTC Float 数字巨大模式（加密卡片唯一主角，参考 iOS 待机时钟尺度）
+   规范 2.1：字号建议 clamp(12rem, 65vh, 32rem)，占屏高 75%~85%；5 位价格数字故上限收紧防溢出 */
 .mode-fullscreen .stat[data-market="crypto"] .stat-val {
-  font-size: clamp(88px, 26vw, 300px);
+  font-size: clamp(72px, 65vh, 336px);
   font-weight: 900;
   letter-spacing: -0.08em;
-  line-height: 0.9;
+  line-height: 0.85;
 }
 
 /* 加密货币极简时钟：价格绝对主体；右上角 BTC 角标，左下角涨跌+状态（风格与 iOS StandBy 设计文档一致） */
@@ -525,6 +536,7 @@ footer { margin-top: 40px; }
   align-items: center;
   justify-content: center;
   padding: 5vh 3vw calc(5vh + env(safe-area-inset-bottom, 0px));
+  background: #000000; /* 规范 3.1：纯黑画布，适配 OLED 防烧屏 + screen 混合 */
 }
 /* 右上角 BTC 角标：圆润字体 + 简洁胶囊，橙色 ₿ 符号 */
 .mode-fullscreen .crypto-tag {
