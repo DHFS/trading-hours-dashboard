@@ -446,7 +446,6 @@ function saveCache() {
 // 构建数据源代码 -> 内部短代码（key）的映射
 function buildSourceMaps() {
   const tencentMap = {};
-  const yahooMap = {};
   const etfMap = {};   // 腾讯ETF代码 -> { code: 内部短代码, base: 指数昨收基准点位 }
   const emSecid = {};  // 日经/KOSPI 的 secid -> 内部短代码（用于东财 stock/get 精准请求）
   const emPrec = {};   // 东财短代码 -> 小数位（价格需 ÷10^prec；外汇 4 位，其余 2 位）
@@ -454,17 +453,16 @@ function buildSourceMaps() {
     for (const q of m.quotes) {
       const code = q.secid ? q.secid.split('.')[1] : q.label;
       if (q.tencent) tencentMap[q.tencent] = code;
-      if (q.yahoo) yahooMap[q.yahoo] = code;
       if (q.etf) etfMap[q.etf] = { code: code, base: q.base };
       if (q.secid) emPrec[code] = q.prec || 2;
       if (q.secid && (q.secid === '100.N225' || q.secid === '100.KS11')) emSecid[q.secid] = code;
     }
   }
-  return { tencentMap, yahooMap, etfMap, emSecid, emPrec };
+  return { tencentMap, etfMap, emSecid, emPrec };
 }
 
 async function fetchQuotes() {
-  const { tencentMap, yahooMap, etfMap, emSecid, emPrec } = buildSourceMaps();
+  const { tencentMap, etfMap, emSecid, emPrec } = buildSourceMaps();
   const etfPct = {}; // 内部短代码 -> 腾讯ETF当日涨跌幅(%)，用于日经/KOSPI 兜底估算
 
   // 1) A股/港股/美股 + 日经/KOSPI的ETF：腾讯 qt.gtimg.cn（支持 CORS、稳定）。返回 GBK，字段以 ~ 分隔：[3]=最新价 [4]=昨收
@@ -499,25 +497,7 @@ async function fetchQuotes() {
     }
   }
 
-  // 2) 日经/韩股：Yahoo Finance chart 接口（支持 CORS）
-  for (const yc of Object.keys(yahooMap)) {
-    const code = yahooMap[yc];
-    try {
-      const r = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(yc) + '?interval=1d&range=1d');
-      const j = await r.json();
-      const meta = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
-      if (meta) {
-        const price = meta.regularMarketPrice;
-        const prev = meta.chartPreviousClose;
-        if (isFinite(price) && price > 0) quotes[code] = { price: price };
-        if (isFinite(prev) && prev > 0) closes[code] = prev;
-      }
-    } catch (e) {
-      console.warn('指数行情获取失败（Yahoo ' + yc + '）', e);
-    }
-  }
-
-  // 3) 兜底：东方财富（仅补充上面未取到的 code；f2=最新价 f3=涨跌幅 f18=昨收 f12=短代码，均需 ÷100）
+  // 2) 日经/韩股：东方财富（仅补充上面未取到的 code；f2=最新价 f3=涨跌幅 f18=昨收 f12=短代码，均需 ÷100）
   try {
     const secids = [];
     for (const m of MARKETS) {
@@ -538,7 +518,7 @@ async function fetchQuotes() {
     console.warn('指数行情获取失败（东方财富兜底）', e);
   }
 
-  // 3.5) 日经/KOSPI 精准源：东财 stock/get（f43=最新价 f60=昨收 f170=涨跌幅 f152=小数位）。多域名轮换提高成功率
+  // 3) 日经/KOSPI 精准源：东财 stock/get（f43=最新价 f60=昨收 f170=涨跌幅 f152=小数位）。多域名轮换提高成功率
   const emHosts = ['https://push2delay.eastmoney.com', 'https://push2his.eastmoney.com', 'https://push2.eastmoney.com'];
   for (const secid of Object.keys(emSecid)) {
     const code = emSecid[secid];
@@ -558,7 +538,7 @@ async function fetchQuotes() {
     }
   }
 
-  // 3.8) 日经/KOSPI 兜底估算：东财/Yahoo 都失败时，用腾讯ETF当日涨跌幅 × 昨收基准 估算指数点位
+  // 4) 日经/KOSPI 兜底估算：东财失败时，用腾讯ETF当日涨跌幅 × 昨收基准 估算指数点位
   for (const m of MARKETS) {
     for (const q of m.quotes) {
       if (!q.etf) continue;
@@ -572,7 +552,7 @@ async function fetchQuotes() {
     }
   }
 
-  // 4) 加密货币：Binance 官方数据镜像（api.binance.com 被墙，改用镜像域名）
+  // 5) 加密货币：Binance 官方数据镜像（api.binance.com 被墙，改用镜像域名）
   try {
     const r = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22%5D');
     const arr = await r.json();

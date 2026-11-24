@@ -88,13 +88,13 @@ const MARKETS = [
     id: 'jp',
     name: '日经',
     sub: 'JPX',
-    quotes: [{ label: '日经225', secid: '100.N225', yahoo: '^N225', etf: 'sh513880', base: 56436.65 }]
+    quotes: [{ label: '日经225', secid: '100.N225', etf: 'sh513880', base: 56436.65 }]
   },
   {
     id: 'kr',
     name: '韩股',
     sub: 'KRX',
-    quotes: [{ label: 'KOSPI', secid: '100.KS11', yahoo: '^KS11', etf: 'hk03121', base: 4708.54 }]
+    quotes: [{ label: 'KOSPI', secid: '100.KS11', etf: 'hk03121', base: 4708.54 }]
   },
   {
     id: 'us',
