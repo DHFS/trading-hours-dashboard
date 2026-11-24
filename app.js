@@ -93,6 +93,11 @@ function fmtPrice(v) {
   if (v == null || !isFinite(v) || v <= 0) return '--';
   return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+// BTC 价格：仅保留整数、无千分位分隔符（如 59734），供 Float 主题逐位拆分渲染
+function fmtBtcPrice(v) {
+  if (v == null || !isFinite(v) || v <= 0) return '--';
+  return Math.round(v).toString();
+}
 function fmtPct(v) {
   if (v == null) return '--';
   const s = v > 0 ? '+' : '';
@@ -886,8 +891,8 @@ function updateQuotes() {
     const v = quoteValue(el.dataset.market, el.dataset.code);
     const valEl = el.querySelector('.stat-val');
     if (el.dataset.market === 'crypto') {
-      // 加密货币：Float 风格拆分数字渲染
-      valEl.innerHTML = btcFloatHtml(fmtPrice(v.price));
+      // 加密货币：Float 风格拆分数字渲染（仅整数，无分隔符）
+      valEl.innerHTML = btcFloatHtml(fmtBtcPrice(v.price));
     } else {
       valEl.textContent = fmtPrice(v.price);
     }
