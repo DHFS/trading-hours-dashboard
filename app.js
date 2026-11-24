@@ -713,19 +713,32 @@ function renderDots(activeId) {
   return '<div class="clock-dots">' + html + '</div>';
 }
 
+// 导航圆点：切换市场时短暂显示 3 秒后自动隐藏（避免常驻占用底部空间）
+let dotsTimer = null;
+function revealDots() {
+  const dots = document.querySelector('.clock-dots');
+  if (!dots) return;
+  dots.classList.add('show');
+  clearTimeout(dotsTimer);
+  dotsTimer = setTimeout(function () { dots.classList.remove('show'); }, 3000);
+}
+
 function renderClockCard(m, st, now) {
-  // 加密货币：极简桌面时钟——价格是绝对主体。无导航栏、无时间轴，仅巨大价格 + 涨跌幅 + 24/7 全年无休。
+  // 加密货币：极简桌面时钟——价格是绝对主体。右上角 BTC 角标，左下角涨跌+状态，无导航栏、无时间轴。
   if (m.id === 'crypto') {
     return '<article class="card is-crypto-clock" data-id="crypto">' +
+      '<span class="crypto-tag"><span class="btc-sym">₿</span>BTC</span>' +
       '<div class="crypto-stage">' +
         '<div class="stat" data-market="crypto" data-code="BTC">' +
           '<span class="stat-val">--</span>' +
-          '<span class="stat-pct flat">--</span>' +
         '</div>' +
-        '<div class="crypto-meta">' +
+      '</div>' +
+      '<div class="crypto-meta">' +
+        '<span class="crypto-pct flat" data-market="crypto" data-code="BTC">--</span>' +
+        '<span class="crypto-meta-sub">' +
           '<span class="crypto-status"><span class="dot dot-open"></span>交易中</span>' +
           '<span class="crypto-sub">24/7 全年无休</span>' +
-        '</div>' +
+        '</span>' +
       '</div>' +
       renderDots('crypto') +
     '</article>';
@@ -795,6 +808,7 @@ function renderFullscreen(withFade) {
       requestAnimationFrame(function () {
         requestAnimationFrame(function () { grid.classList.remove('fade-out'); });
       });
+      revealDots(); // 切换市场时短暂显示导航圆点
     }, 180);
   } else {
     grid.innerHTML = html;
@@ -891,6 +905,7 @@ function patchCard(el, m, st, now) {
 
 // 增量更新所有行情数字（不重建 DOM）
 function updateQuotes() {
+  const cls = (v) => v == null ? 'flat' : (v > 0 ? 'up' : (v < 0 ? 'down' : 'flat'));
   document.querySelectorAll('.stat[data-market]').forEach((el) => {
     const v = quoteValue(el.dataset.market, el.dataset.code);
     const valEl = el.querySelector('.stat-val');
@@ -901,8 +916,16 @@ function updateQuotes() {
       valEl.textContent = fmtPrice(v.price);
     }
     const pctEl = el.querySelector('.stat-pct');
-    pctEl.textContent = fmtPct(v.pct);
-    pctEl.className = 'stat-pct ' + (v.pct == null ? 'flat' : (v.pct > 0 ? 'up' : (v.pct < 0 ? 'down' : 'flat')));
+    if (pctEl) {
+      pctEl.textContent = fmtPct(v.pct);
+      pctEl.className = 'stat-pct ' + cls(v.pct);
+    }
+  });
+  // 加密货币：涨跌幅独立展示在左下角（.crypto-pct）
+  document.querySelectorAll('.crypto-pct[data-market="crypto"]').forEach((el) => {
+    const v = quoteValue(el.dataset.market, el.dataset.code);
+    el.textContent = fmtPct(v.pct);
+    el.className = 'crypto-pct ' + cls(v.pct);
   });
 }
 
