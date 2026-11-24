@@ -538,28 +538,16 @@ footer { margin-top: 40px; }
   padding: 5vh 3vw calc(5vh + env(safe-area-inset-bottom, 0px));
   background: #000000; /* 规范 3.1：纯黑画布，适配 OLED 防烧屏 + screen 混合 */
 }
-/* 右上角 BTC 角标：圆润字体 + 简洁胶囊，橙色 ₿ 符号 */
+/* 右上角 BTC 角标：极简纯文字——低饱和灰白小字，直接浮在纯黑背景上，不抢价格主体 */
 .mode-fullscreen .crypto-tag {
   position: absolute;
   top: 4vh;
   right: 5vw;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
   font-family: "SF Pro Rounded", "ui-rounded", "Nunito", "Rubik", -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: clamp(20px, 4vh, 32px);
-  font-weight: 800;
-  color: var(--ink);
-  letter-spacing: 0.02em;
-  padding: 0.5vh 1.2vw;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-.mode-fullscreen .crypto-tag .btc-sym {
-  color: #F7931A;
-  font-size: 0.9em;
-  line-height: 1;
+  font-size: clamp(16px, 3vh, 24px);
+  font-weight: 600;
+  color: var(--faint);
+  letter-spacing: 0.14em;
 }
 /* 主数字容器 */
 .mode-fullscreen .crypto-stage {

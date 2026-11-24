@@ -740,7 +740,7 @@ function renderClockCard(m, st, now) {
   // 加密货币：极简桌面时钟——价格是绝对主体。右上角 BTC 角标，左下角涨跌+状态，无导航栏、无时间轴。
   if (m.id === 'crypto') {
     return '<article class="card is-crypto-clock" data-id="crypto">' +
-      '<span class="crypto-tag"><span class="btc-sym">₿</span>BTC</span>' +
+      '<span class="crypto-tag">BTC</span>' +
       '<div class="crypto-stage">' +
         '<div class="stat" data-market="crypto" data-code="BTC">' +
           '<span class="stat-val">--</span>' +
