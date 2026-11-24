@@ -598,11 +598,6 @@ footer { margin-top: 40px; }
   color: #6FD99B;
 }
 .mode-fullscreen .crypto-status .dot { width: 6px; height: 6px; }
-.mode-fullscreen .crypto-sub {
-  font-size: clamp(13px, 2.4vh, 18px);
-  color: var(--muted);
-  letter-spacing: 0.04em;
-}
 
 /* 交易中（.is-open）：指数升级为主角、居中大字体，倒计时降级为次要放指数下方 */
 .mode-fullscreen .card.is-open {

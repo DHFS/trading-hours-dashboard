@@ -750,7 +750,6 @@ function renderClockCard(m, st, now) {
         '<span class="crypto-pct flat" data-market="crypto" data-code="BTC">--</span>' +
         '<span class="crypto-meta-sub">' +
           '<span class="crypto-status"><span class="dot dot-open"></span>交易中</span>' +
-          '<span class="crypto-sub">24/7 全年无休</span>' +
         '</span>' +
       '</div>' +
       renderDots('crypto') +
