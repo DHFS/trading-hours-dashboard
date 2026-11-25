@@ -217,6 +217,11 @@ function updateBtcDigits(valEl, newStr) {
   });
 }
 
+// Float 数字通用别名：美股时钟复用与 BTC 完全相同的 Float 数字规范（v3 第 2/3/6 节）
+const fmtFloatInt = fmtBtcPrice;          // 整数、无千分位
+const renderFloatDigits = btcFloatHtml;  // 逐位拆分 + 多色叠印
+const updateFloatDigits = updateBtcDigits; // 按位差分滚动（含堆叠防护）
+
 // 分钟数 -> "HH:MM"（用于进度条关键时间刻度标签）
 function fmtClock(minute) {
   return pad(Math.floor(minute / 60)) + ':' + pad(minute % 60);
@@ -880,6 +885,47 @@ function revealDots() {
   dotsTimer = setTimeout(function () { dots.classList.remove('show'); }, 3000);
 }
 
+// 美股 Float 时钟：遵循 ios_standby_floatv3.md 的 Float 规范（同 BTC 卡片）
+// - 隔夜休市（overnight/weekend/holiday）：主角 = 距开盘倒计时 HH:MM:SS，逐位_FLOAT 渲染 + 秒级差分滚动
+// - 开盘/盘前/盘后（open/pre/post）：主角 = 纳斯达克指数（整数），逐位 FLOAT 渲染 + 差分滚动；左下角涨跌幅
+// 两种形态共用同一个 .is-us-clock 容器，通过 .show-index 类切换主次，避免状态切换时重建 DOM。
+function isUsIndexPhase(st) {
+  return st.status === 'open' || st.status === 'pre' || st.status === 'post';
+}
+function renderUsClockCard(m, st, now) {
+  const showIndex = isUsIndexPhase(st);
+  const indexPhaseLabel = st.status === 'open' ? '交易中' : (st.status === 'pre' ? '盘前' : '盘后');
+  const dotCls = 'dot-' + st.status;
+  const cdTime = fmtClockCountdown((st.targetMs || now.nowMs) - now.nowMs);
+  const cdLabel = st.countdownLabel || '距开盘';
+
+  return '<article class="card is-us-clock' + (showIndex ? ' show-index' : '') + '" data-id="us">' +
+    '<span class="us-tag">NASDAQ</span>' +
+    // 倒计时主角（隔夜/周末/休市日）
+    '<div class="us-stage us-cd-stage">' +
+      '<div class="us-cd-wrap">' +
+        '<div class="us-cd-label">' + cdLabel + '</div>' +
+        '<div class="us-cd-time float-num" data-target="' + (st.targetMs || '') + '" data-mode="us">' + renderFloatDigits(cdTime) + '</div>' +
+      '</div>' +
+    '</div>' +
+    // 纳斯达克指数主角（开盘/盘前/盘后）
+    '<div class="us-stage us-index-stage">' +
+      '<div class="stat us-index-stat" data-market="us" data-code="NDX">' +
+        '<span class="stat-val float-num">--</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="us-meta">' +
+      '<span class="us-pct flat" data-market="us" data-code="NDX">--</span>' +
+      '<span class="us-meta-sub">' +
+        '<span class="us-status"><span class="dot ' + dotCls + '"></span>' +
+          (showIndex ? indexPhaseLabel : STATUS_META[st.status].label) +
+        '</span>' +
+      '</span>' +
+    '</div>' +
+    renderDots('us') +
+  '</article>';
+}
+
 function renderClockCard(m, st, now) {
   // 加密货币：极简桌面时钟——价格是绝对主体。右上角 BTC 角标，左下角涨跌+状态，无导航栏、无时间轴。
   if (m.id === 'crypto') {
@@ -899,6 +945,9 @@ function renderClockCard(m, st, now) {
       renderDots('crypto') +
     '</article>';
   }
+
+  // 美股：Float 桌面时钟（隔夜显示倒计时，开盘/盘前/盘后显示纳斯达克指数）
+  if (m.id === 'us') return renderUsClockCard(m, st, now);
 
   const meta = STATUS_META[st.status];
   const badge = '<span class="badge st-' + st.status + '"><span class="dot dot-' + st.status + '"></span><span class="badge-text">' + meta.label + '</span></span>';
@@ -1021,6 +1070,28 @@ function updateHeader(now) {
 // 增量更新单张卡片的状态（不重建 DOM）
 function patchCard(el, m, st, now) {
   if (m.id === 'crypto') return; // 加密货币极简时钟：状态恒定交易中，无徽章/倒计时/时间轴，跳过增量更新
+  if (m.id === 'us' && el.classList.contains('is-us-clock')) {
+    // 美股 Float 时钟：形态切换（隔夜 ↔ 指数阶段）时重建，否则只刷新文字与倒计时目标
+    const wantIndex = isUsIndexPhase(st);
+    if (el.classList.contains('show-index') !== wantIndex) {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = renderClockCard(m, st, now);
+      updateQuotes();
+      return;
+    }
+    const cdTime = el.querySelector('.us-cd-time');
+    if (cdTime) {
+      cdTime.dataset.target = st.targetMs || '';
+      const lbl = el.querySelector('.us-cd-label');
+      if (lbl) lbl.textContent = st.countdownLabel || '距开盘';
+    }
+    const stEl = el.querySelector('.us-status');
+    if (stEl) {
+      stEl.innerHTML = '<span class="dot dot-' + st.status + '"></span>' +
+        (wantIndex ? (st.status === 'open' ? '交易中' : (st.status === 'pre' ? '盘前' : '盘后')) : STATUS_META[st.status].label);
+    }
+    return;
+  }
   const meta = STATUS_META[st.status];
   el.classList.toggle('is-open', st.status === 'open');
   const badge = el.querySelector('.badge');
@@ -1068,6 +1139,9 @@ function updateQuotes() {
     if (el.dataset.market === 'crypto') {
       // 加密货币：按位差分滚动（仅变化数位跳动，遵循 v3 规范第 6 点）
       updateBtcDigits(valEl, fmtBtcPrice(v.price));
+    } else if (valEl.classList.contains('float-num')) {
+      // 美股 Float 时钟：纳斯达克指数取整数，按位差分滚动（同 v3 规范第 6 点）
+      updateFloatDigits(valEl, fmtFloatInt(v.price));
     } else {
       valEl.textContent = fmtPrice(v.price);
     }
@@ -1082,6 +1156,12 @@ function updateQuotes() {
     const v = quoteValue(el.dataset.market, el.dataset.code);
     el.textContent = fmtPct(v.pct);
     el.className = 'crypto-pct ' + cls(v.pct);
+  });
+  // 美股 Float 时钟：纳指涨跌幅独立展示在左下角（.us-pct）
+  document.querySelectorAll('.us-pct[data-market="us"]').forEach((el) => {
+    const v = quoteValue(el.dataset.market, el.dataset.code);
+    el.textContent = fmtPct(v.pct);
+    el.className = 'us-pct ' + cls(v.pct);
   });
 }
 
@@ -1148,6 +1228,12 @@ function updateCountdowns() {
     el.textContent = el.dataset.mode === 'clock'
       ? fmtClockCountdown(t - nowMs)
       : el.dataset.label + ' ' + fmtDuration(t - nowMs);
+  });
+  // 美股 Float 时钟：隔夜倒计时逐位差分滚动（v3 规范第 6 点），每秒触发
+  document.querySelectorAll('.us-cd-time[data-target]').forEach((el) => {
+    const t = +el.dataset.target;
+    if (!t) return;
+    updateFloatDigits(el, fmtClockCountdown(t - nowMs));
   });
 }
 

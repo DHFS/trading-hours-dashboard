@@ -260,8 +260,9 @@ body {
 .down { color: var(--c-down); }
 .flat { color: var(--muted); }
 
-/* BTC 价格 - iOS StandBy "Float" 主题数字：圆润粗体 + 蓝色叠印 + 负字距 */
-.stat[data-market="crypto"] .stat-val {
+/* BTC 价格 / 美股 - iOS StandBy "Float" 主题数字：圆润粗体 + 蓝色叠印 + 负字距
+   .float-num 为美股 Float 时钟（指数/倒计时）复用同一套规范（v3 第 2/3/6 节） */
+:is(.stat[data-market="crypto"] .stat-val, .float-num) {
   font-family: "SF Pro Rounded", "ui-rounded", "Nunito", "Rubik", -apple-system, BlinkMacSystemFont, sans-serif;
   font-weight: 800;
   letter-spacing: -0.05em;
@@ -269,7 +270,7 @@ body {
   font-variant-numeric: tabular-nums lining-nums;
   display: inline-flex;
 }
-.stat[data-market="crypto"] .stat-val > .dig {
+:is(.stat[data-market="crypto"] .stat-val, .float-num) > .dig {
   mix-blend-mode: screen;
   display: inline-block;
   transform: rotate(var(--t, 0deg)) translateY(var(--y, 0em));
@@ -278,7 +279,7 @@ body {
   opacity: 0.94; /* 规范 3.3：图层混合 0.92~0.96，叠印更通透 */
 }
 /* 呼吸浮动：内层数字做缓慢上下浮动 + 微幅旋转（周期 7s、±5px、±1.2deg，相位错开） */
-.stat[data-market="crypto"] .stat-val .dig-f {
+:is(.stat[data-market="crypto"] .stat-val, .float-num) .dig-f {
   display: inline-block;
   animation: btc-breathe 7s ease-in-out infinite;
   will-change: transform;
@@ -287,17 +288,17 @@ body {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-0.035em) rotate(1.2deg); }
 }
-.stat[data-market="crypto"] .stat-val .bd-sep { color: rgba(122, 196, 248, 0.55); } /* 分隔符浅青蓝 */
+:is(.stat[data-market="crypto"] .stat-val, .float-num) .bd-sep { color: rgba(122, 196, 248, 0.55); } /* 分隔符浅青蓝 */
 
 /* 按位差分滚动（v3 规范第 6 点）：字符层可替换，进入字符绝对定位覆盖在旧字符上滑动 */
-.stat[data-market="crypto"] .stat-val .dig-f { position: relative; }
-.stat[data-market="crypto"] .stat-val .dig-cell { display: inline-block; white-space: pre; }
-.stat[data-market="crypto"] .stat-val .dig-cell.dig-enter { position: absolute; left: 0; top: 0; }
+:is(.stat[data-market="crypto"] .stat-val, .float-num) .dig-f { position: relative; }
+:is(.stat[data-market="crypto"] .stat-val, .float-num) .dig-cell { display: inline-block; white-space: pre; }
+:is(.stat[data-market="crypto"] .stat-val, .float-num) .dig-cell.dig-enter { position: absolute; left: 0; top: 0; }
 /* 弹簧曲线近似（stiffness 300 / damping 28 / mass 0.9，临界阻尼，约 400ms） */
-.stat[data-market="crypto"] .stat-val .roll-out-up   { animation: btc-roll-out-up   .4s cubic-bezier(.25, 1, .5, 1) both; }
-.stat[data-market="crypto"] .stat-val .roll-in-up    { animation: btc-roll-in-up    .4s cubic-bezier(.25, 1, .5, 1) both; }
-.stat[data-market="crypto"] .stat-val .roll-out-down { animation: btc-roll-out-down .4s cubic-bezier(.25, 1, .5, 1) both; }
-.stat[data-market="crypto"] .stat-val .roll-in-down  { animation: btc-roll-in-down  .4s cubic-bezier(.25, 1, .5, 1) both; }
+:is(.stat[data-market="crypto"] .stat-val, .float-num) .roll-out-up   { animation: btc-roll-out-up   .4s cubic-bezier(.25, 1, .5, 1) both; }
+:is(.stat[data-market="crypto"] .stat-val, .float-num) .roll-in-up    { animation: btc-roll-in-up    .4s cubic-bezier(.25, 1, .5, 1) both; }
+:is(.stat[data-market="crypto"] .stat-val, .float-num) .roll-out-down { animation: btc-roll-out-down .4s cubic-bezier(.25, 1, .5, 1) both; }
+:is(.stat[data-market="crypto"] .stat-val, .float-num) .roll-in-down  { animation: btc-roll-in-down  .4s cubic-bezier(.25, 1, .5, 1) both; }
 /* 涨：旧值上移(-40%)淡出缩小，新值从底部(+40%)进入 */
 @keyframes btc-roll-out-up   { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(-40%) scale(.94); opacity: 0; } }
 @keyframes btc-roll-in-up    { from { transform: translateY(40%) scale(.94); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
@@ -614,6 +615,111 @@ footer { margin-top: 40px; }
   color: #6FD99B;
 }
 .mode-fullscreen .crypto-status .dot { width: 6px; height: 6px; }
+
+/* ========== 美股 Float 时钟（遵循 ios_standby_floatv3.md，与 BTC 同视觉规范） ==========
+   隔夜/周末/休市日：主角=距开盘倒计时 HH:MM:SS（秒级差分滚动）
+   开盘/盘前/盘后：主角=纳斯达克指数整数（差分滚动）+ 左下角涨跌幅
+   右上角 NASDAQ 角标、左下角涨跌+状态，纯黑画布、无导航常驻、无时间轴 */
+.mode-fullscreen .card.is-us-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5vh 3vw calc(5vh + env(safe-area-inset-bottom, 0px));
+  background: #000000; /* 规范 3.1：纯黑画布，适配 OLED + screen 叠印 */
+}
+.mode-fullscreen .us-tag {
+  position: absolute;
+  top: 4vh;
+  right: 5vw;
+  font-family: "SF Pro Rounded", "ui-rounded", "Nunito", "Rubik", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(16px, 3vh, 24px);
+  font-weight: 600;
+  color: var(--faint);
+  letter-spacing: 0.14em;
+}
+/* 两个舞台：默认只显示倒计时，.show-index 时切到指数舞台 */
+.mode-fullscreen .us-stage {
+  flex: 1 1 auto;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.mode-fullscreen .is-us-clock:not(.show-index) .us-cd-stage { display: flex; }
+.mode-fullscreen .is-us-clock.show-index .us-index-stage { display: flex; }
+
+/* 倒计时主角：标签 + 巨大 HH:MM:SS（冒号为浅色分隔符，数字走 Float 多色叠印） */
+.mode-fullscreen .us-cd-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.6vh;
+}
+.mode-fullscreen .us-cd-label {
+  font-family: "SF Pro Rounded", "ui-rounded", "Nunito", "Rubik", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(18px, 3.6vh, 30px);
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.16em;
+}
+.mode-fullscreen .us-cd-time {
+  font-size: clamp(64px, 24vh, 240px);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+}
+/* 倒计时冒号：冷白微亮，不参与彩色叠印（规范 2.2 冷白） */
+.mode-fullscreen .us-cd-time .bd-sep { color: rgba(255, 255, 255, 0.5); }
+
+/* 指数主角：纳斯达克整数，与 BTC 同巨大字号 */
+.mode-fullscreen .is-us-clock .stat {
+  padding: 0;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mode-fullscreen .us-index-stat .stat-val {
+  font-size: clamp(72px, 65vh, 336px);
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  line-height: 0.85;
+}
+
+/* 左下角：纳指涨跌幅 + 状态（与 BTC 同布局） */
+.mode-fullscreen .us-meta {
+  position: absolute;
+  left: 5vw;
+  bottom: calc(4vh + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.8vh;
+}
+.mode-fullscreen .us-pct {
+  font-family: "SF Pro Rounded", "ui-rounded", "Nunito", "Rubik", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(28px, 6vh, 46px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.mode-fullscreen .us-meta-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.2vw;
+}
+.mode-fullscreen .us-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: clamp(13px, 2.4vh, 18px);
+  font-weight: 600;
+  color: #6FD99B;
+}
+.mode-fullscreen .us-status .dot { width: 6px; height: 6px; }
 
 /* 交易中（.is-open）：指数升级为主角、居中大字体，倒计时降级为次要放指数下方 */
 .mode-fullscreen .card.is-open {
