@@ -115,36 +115,11 @@ const MARKETS = [
     ]
   },
   {
-    id: 'gold',
-    name: '黄金',
-    sub: 'COMEX · XAU',
-    quotes: [
-      { label: 'COMEX黄金', secid: '101.GC00Y' },
-      { label: '伦敦金', secid: '122.XAU' }
-    ]
-  },
-  {
     id: 'brent',
     name: '布伦特原油',
     sub: 'ICE',
     quotes: [
       { label: '布伦特原油', secid: '112.B00Y' }
-    ]
-  },
-  {
-    id: 'usdcnh',
-    name: '美元离岸人民币',
-    sub: 'USDCNH',
-    quotes: [
-      { label: 'USDCNH', secid: '133.USDCNH', prec: 4 }
-    ]
-  },
-  {
-    id: 'vix',
-    name: 'VIX恐慌指数',
-    sub: 'CBOE',
-    quotes: [
-      { label: 'VIX', secid: '167.VIX' }
     ]
   }
 ];

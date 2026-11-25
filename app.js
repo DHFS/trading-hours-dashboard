@@ -4,8 +4,8 @@
 // ============================================================
 
 // ---------- 全屏单卡模式（URL hash #crypto/#us 等启用，body 加 .mode-fullscreen） ----------
-// 固定切换顺序：加密货币 → A股 → 港股 → 日经 → 韩股 → 美股
-const MARKET_IDS = ['crypto', 'aShare', 'hk', 'jp', 'kr', 'us', 'gold', 'brent', 'usdcnh', 'vix'];
+// 固定切换顺序：加密货币 → A股 → 港股 → 日经 → 韩股 → 美股 → 布伦特原油
+const MARKET_IDS = ['crypto', 'aShare', 'hk', 'jp', 'kr', 'us', 'brent'];
 
 function readInitialMarket() {
   const h = window.location.hash.replace('#', '');
@@ -442,7 +442,7 @@ function cryptoStatus() {
   };
 }
 
-// ---------- 商品/货币（黄金、原油、外汇）：工作日 24h 连续交易，周末休市 ----------
+// ---------- 商品（原油）：工作日 24h 连续交易，周末休市 ----------
 function commodityNextOpen(now, openMinute) {
   let k = now.key;
   for (let i = 0; i < 7; i++) {
@@ -467,12 +467,12 @@ function commodityStatus(openMinute) {
 function nextOpenMs(m, now) {
   if (m.id === 'crypto') return now.nowMs;
 
-  if (m.id === 'gold' || m.id === 'brent' || m.id === 'usdcnh') {
+  if (m.id === 'brent') {
     if (now.weekday >= 1 && now.weekday <= 5) return now.nowMs;
-    return commodityNextOpen(now, m.id === 'usdcnh' ? 300 : 360);
+    return commodityNextOpen(now, 360);
   }
 
-  if (m.id === 'us' || m.id === 'vix') {
+  if (m.id === 'us') {
     const offset = usIsDST(now.nowMs) ? 4 : 5;
     const etMs = now.nowMs - offset * 3600e3;
     const et = new Date(etMs);
@@ -505,20 +505,13 @@ const statusFns = {
   kr: (now) => computeRegularMarket(CFG.kr, now),
   us: (now) => usStatus(now),
   crypto: () => cryptoStatus(),
-  gold: commodityStatus(360),
-  brent: commodityStatus(360),
-  usdcnh: commodityStatus(300),
-  vix: (now) => {
-    const st = usStatus(now);
-    if (st.detail === '美股休市日') { st.detail = 'VIX 休市日'; st.holidayName = 'VIX 休市日'; }
-    return st;
-  }
+  brent: commodityStatus(360)
 };
 
 // ---------- 行情 ----------
 // quotes: 最新价/涨跌幅（key=东财短代码，如 000001/HSI）
 // closes: 昨收价（key=短代码），用于最新价缺失时的回退
-// crypto: 加密货币（key=BTC/ETH）
+// crypto: 加密货币（key=BTC）
 let quotes = {};
 let closes = {};
 let crypto = {};
@@ -813,10 +806,7 @@ const ICONS = {
   kr: '🇰🇷',
   us: '🇺🇸',
   crypto: '<span class="btc">₿</span>',
-  gold: '🥇',
-  brent: '🛢️',
-  usdcnh: '💱',
-  vix: '📉'
+  brent: '🛢️'
 };
 
 function renderCard(m, st, now) {
