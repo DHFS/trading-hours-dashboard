@@ -900,7 +900,14 @@ function renderUsClockCard(m, st, now) {
   const cdLabel = st.countdownLabel || '距开盘';
 
   return '<article class="card is-us-clock' + (showIndex ? ' show-index' : '') + '" data-id="us">' +
-    '<span class="us-tag">NASDAQ</span>' +
+    '<div class="us-tag-group">' +
+      '<span class="us-tag">NASDAQ</span>' +
+      // 隔夜休市：角标下方小字展示休市前纳指收盘点位 + 涨跌幅（指数形态时由 CSS 隐藏）
+      '<span class="us-close">' +
+        '<span class="us-close-val" data-market="us" data-code="NDX">--</span>' +
+        '<span class="us-close-pct" data-market="us" data-code="NDX">--</span>' +
+      '</span>' +
+    '</div>' +
     // 倒计时主角（隔夜/周末/休市日）
     '<div class="us-stage us-cd-stage">' +
       '<div class="us-cd-wrap">' +
@@ -1162,6 +1169,17 @@ function updateQuotes() {
     const v = quoteValue(el.dataset.market, el.dataset.code);
     el.textContent = fmtPct(v.pct);
     el.className = 'us-pct ' + cls(v.pct);
+  });
+  // 美股隔夜休市：右上角 NASDAQ 角标下方小字展示休市前纳指收盘点位 + 涨跌幅
+  document.querySelectorAll('.us-close-val[data-market="us"]').forEach((el) => {
+    const v = quoteValue(el.dataset.market, el.dataset.code);
+    el.textContent = fmtPrice(v.price);
+    el.className = 'us-close-val';
+  });
+  document.querySelectorAll('.us-close-pct[data-market="us"]').forEach((el) => {
+    const v = quoteValue(el.dataset.market, el.dataset.code);
+    el.textContent = fmtPct(v.pct);
+    el.className = 'us-close-pct ' + cls(v.pct);
   });
 }
 
