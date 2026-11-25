@@ -649,7 +649,6 @@ footer { margin-top: 40px; }
 .mode-fullscreen .us-close {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.9vw;
   font-family: "SF Pro Rounded", "ui-rounded", "Nunito", "Rubik", -apple-system, BlinkMacSystemFont, sans-serif;
   font-variant-numeric: tabular-nums lining-nums;
   white-space: nowrap;
@@ -658,10 +657,6 @@ footer { margin-top: 40px; }
   font-size: clamp(14px, 2.7vh, 21px);
   font-weight: 600;
   color: var(--muted);
-}
-.mode-fullscreen .us-close-pct {
-  font-size: clamp(13px, 2.5vh, 19px);
-  font-weight: 700;
 }
 /* 指数形态（开盘/盘前/盘后）：指数本身就是主角，隐藏右上角休市小字 */
 .mode-fullscreen .is-us-clock.show-index .us-close { display: none; }
@@ -675,6 +670,11 @@ footer { margin-top: 40px; }
 }
 .mode-fullscreen .is-us-clock:not(.show-index) .us-cd-stage { display: flex; }
 .mode-fullscreen .is-us-clock.show-index .us-index-stage { display: flex; }
+/* 横屏灵动岛在左侧：倒计时舞台左侧额外留白（基础 7vw + 系统安全区），确保最左数字不被遮挡 */
+.mode-fullscreen .is-us-clock:not(.show-index) .us-cd-stage {
+  padding-left: calc(7vw + env(safe-area-inset-left, 0px));
+  padding-right: 3vw;
+}
 
 /* 倒计时主角：标签 + 巨大 HH:MM:SS（冒号为浅色分隔符，数字走 Float 多色叠印） */
 .mode-fullscreen .us-cd-wrap {
@@ -691,13 +691,17 @@ footer { margin-top: 40px; }
   letter-spacing: 0.16em;
 }
 .mode-fullscreen .us-cd-time {
-  /* 8 字符 HH:MM:SS 宽度 ≈ 字号×3.72，用 vw 约束以撑满横屏宽度而不换行（每侧留安全边距），高度上限做保护 */
-  font-size: clamp(64px, 24vw, 260px);
+  /* 8 字符 HH:MM:SS：字距 -0.12em + 数字负 margin(-0.06em) 形成参考截图般的堆叠叠印，
+     整体宽度系数≈3.25。字号按安全可视宽度的 86% 撑满，左右各留约 7% 避开灵动岛，高度上限做保护 */
+  font-size: clamp(64px, calc((100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) * 0.86 / 3.25), 320px);
   font-weight: 900;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.12em;
   line-height: 0.9;
   white-space: nowrap;
 }
+/* 数字堆叠：相邻数字负 margin 互相压叠约 8% 字宽，营造 Float 叠印高光（仅倒计时形态） */
+.mode-fullscreen .us-cd-time > .dig { margin-right: -0.06em; }
+.mode-fullscreen .us-cd-time > .dig:last-of-type { margin-right: 0; }
 /* 倒计时冒号：冷白微亮，不参与彩色叠印（规范 2.2 冷白） */
 .mode-fullscreen .us-cd-time .bd-sep { color: rgba(255, 255, 255, 0.5); }
 
