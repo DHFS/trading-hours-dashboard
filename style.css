@@ -690,18 +690,20 @@ footer { margin-top: 40px; }
   color: var(--muted);
   letter-spacing: 0.16em;
 }
-.mode-fullscreen .us-cd-time {
-  /* 8 字符 HH:MM:SS：字距 -0.12em + 数字负 margin(-0.06em) 形成参考截图般的堆叠叠印，
-     整体宽度系数≈3.25。字号按安全可视宽度的 86% 撑满，左右各留约 7% 避开灵动岛，高度上限做保护 */
-  font-size: clamp(64px, calc((100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) * 0.86 / 3.25), 320px);
+/* 提高特异性到 (0,3,0) 盖过 :is(.stat[data-market="crypto"] .stat-val, .float-num) 的 -0.05em，
+   否则字距被覆盖、堆叠失效（曾导致字号实际只有 -0.05em） */
+.mode-fullscreen .is-us-clock .us-cd-time {
+  /* 8 字符 HH:MM:SS：实测 -0.12em 字距 + -0.12em 负 margin 时宽度系数≈2.6、数字重叠约 14% 字宽，
+     与参考截图一致。字号按安全可视宽度的 86% 撑满 → 高度占比约 66%；左右留白避开灵动岛 */
+  font-size: clamp(64px, calc((100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) * 0.86 / 2.6), 360px);
   font-weight: 900;
   letter-spacing: -0.12em;
   line-height: 0.9;
   white-space: nowrap;
 }
-/* 数字堆叠：相邻数字负 margin 互相压叠约 8% 字宽，营造 Float 叠印高光（仅倒计时形态） */
-.mode-fullscreen .us-cd-time > .dig { margin-right: -0.06em; }
-.mode-fullscreen .us-cd-time > .dig:last-of-type { margin-right: 0; }
+/* 数字堆叠：相邻数字负 margin 互相压叠约 14% 字宽，营造 Float 叠印高光（仅倒计时形态） */
+.mode-fullscreen .is-us-clock .us-cd-time > .dig { margin-right: -0.12em; }
+.mode-fullscreen .is-us-clock .us-cd-time > .dig:last-of-type { margin-right: 0; }
 /* 倒计时冒号：冷白微亮，不参与彩色叠印（规范 2.2 冷白） */
 .mode-fullscreen .us-cd-time .bd-sep { color: rgba(255, 255, 255, 0.5); }
 

@@ -171,10 +171,23 @@ function settleBtcSlot(digF) {
 }
 
 function updateBtcDigits(valEl, newStr) {
-  const digFs = valEl.querySelectorAll('.dig .dig-f');
-  // 先结算本轮之前所有槽位的动画，取到真实当前字符（enter 落定为当前值）
+  // 按「完整字符序列」建立槽位映射：数字位(.dig) -> .dig-f，分隔符(.bd-sep，如 HH:MM:SS 的冒号) -> null。
+  // 关键：不能只收集 .dig，否则倒计时 oldStr 会比 newStr 少 2 个冒号，长度永远不等 →
+  // 每秒都走 innerHTML 全量重建，所有数字节点被重建、呼吸动画重置（表现为全部数字每秒跳一次）。
+  const slotDigFs = []; // 与字符索引一一对应
   let oldStr = '';
-  for (let i = 0; i < digFs.length; i++) oldStr += settleBtcSlot(digFs[i]);
+  const nodes = valEl.children;
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (node.classList.contains('dig')) {
+      const digF = node.querySelector('.dig-f');
+      slotDigFs.push(digF);
+      oldStr += digF ? settleBtcSlot(digF) : '';
+    } else {
+      slotDigFs.push(null);
+      oldStr += node.textContent; // 分隔符原样保留（不参与动画）
+    }
+  }
   // 首次渲染 / 占位符 / 位数变化：直接重建（无差分可比），无动画
   if (!oldStr || oldStr === '--' || newStr === '--' || oldStr.length !== newStr.length) {
     valEl.innerHTML = btcFloatHtml(newStr);
@@ -182,13 +195,14 @@ function updateBtcDigits(valEl, newStr) {
   }
   if (oldStr === newStr) return; // 完全没变，不动 DOM（绝对静止）
 
-  const up = Number(newStr) > Number(oldStr); // 方向语义
+  // 方向语义：去掉分隔符后比较数值（HH:MM:SS 含冒号时 Number() 会是 NaN）
+  const up = Number(newStr.replace(/\D/g, '')) > Number(oldStr.replace(/\D/g, ''));
   const changed = [];
   for (let i = 0; i < newStr.length; i++) if (oldStr[i] !== newStr[i]) changed.push(i);
   changed.sort(function (a, b) { return b - a; }); // 低位→高位（右→左）
 
   changed.forEach(function (idx, k) {
-    const digF = digFs[idx];
+    const digF = slotDigFs[idx]; // 分隔符位为 null，不参与动画（绝对静止）
     if (!digF) return;
     const exitCell = digF.querySelector('.dig-cell:not(.dig-enter)');
     if (!exitCell) return;
