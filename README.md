@@ -13,7 +13,7 @@
 - 7 种状态：交易中、午间休市、盘前、盘后、隔夜休市、周末休市、休市（节假日）。
 - 普通多卡片模式：加密货币置顶，其余市场按距下一次开盘时间动态升序排列。
 - 全屏时钟模式：hash 切换市场，点击/左右滑动切换；分页圆点仅在切换后短暂显示。
-- BTC 接入 Binance WebSocket 实时推送，价格按位差分滚动；指数类行情 5 分钟轮询以规避数据源风控。
+- BTC 现货与布伦特原油（`BZUSDT` 合约）均接入 Binance WebSocket 实时推送；指数类行情 5 分钟轮询以规避数据源风控。
 - 美股隔夜/周末/节假日显示「距开盘」倒计时；盘前/盘中/盘后显示纳斯达克指数整数。
 - PWA 支持：主屏图标、独立显示、Service Worker 网络优先缓存，改版后无需手动强刷。
 - 纯静态，无后端、无框架、无构建步骤，可直接部署 GitHub Pages。
@@ -66,8 +66,10 @@ README.md    本文件
 |------|------|------|
 | A股 / 港股 / 美股指数 | 腾讯 `qt.gtimg.cn` | 东方财富 |
 | 日经 / KOSPI | 东方财富 `stock/get` | 腾讯 ETF 按昨收基准估算 |
-| BTC | Binance WebSocket `data-stream.binance.vision` | Binance REST 镜像 |
-| 布伦特原油 | 东方财富 `112.B00Y` | 无 |
+| BTC | Binance 现货 WebSocket `data-stream.binance.vision` | Binance 现货 REST 镜像 |
+| 布伦特原油 | Binance U 本位合约 WebSocket `BZUSDT`（`/market` 路由） | Binance Futures REST `fapi/v1/ticker/24hr` |
+
+`BZUSDT` 是币安 U 本位永续合约，标的为布伦特原油（1 桶），不是现货交易对；其价格与涨跌幅直接用于布伦特卡片，不再使用东方财富 `112.B00Y`。USD-M 合约的 `@ticker` 流必须走 `/market` 路由，旧的无路由地址会连接成功但静默不推送。
 
 东方财富对高频请求和部分家庭宽带 IP 有风控，因此指数轮询间隔保持 5 分钟。行情失败时显示 `--`，不展示误导性旧值。
 

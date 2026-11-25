@@ -573,6 +573,11 @@ function saveCache() {
   } catch (e) { /* 忽略写入错误 */ }
 }
 
+// 行情内部代码：东财用 secid 后段，其他源可用显式 code（如 BZUSDT），否则回退 label
+function quoteCode(q) {
+  return q.code || (q.secid ? q.secid.split('.')[1] : q.label);
+}
+
 // 构建数据源代码 -> 内部短代码（key）的映射
 function buildSourceMaps() {
   const tencentMap = {};
@@ -581,7 +586,7 @@ function buildSourceMaps() {
   const emPrec = {};   // 东财短代码 -> 小数位（价格需 ÷10^prec；外汇 4 位，其余 2 位）
   for (const m of MARKETS) {
     for (const q of m.quotes) {
-      const code = q.secid ? q.secid.split('.')[1] : q.label;
+      const code = quoteCode(q);
       if (q.tencent) tencentMap[q.tencent] = code;
       if (q.etf) etfMap[q.etf] = { code: code, base: q.base };
       if (q.secid) emPrec[code] = q.prec || 2;
@@ -672,7 +677,7 @@ async function fetchQuotes() {
   for (const m of MARKETS) {
     for (const q of m.quotes) {
       if (!q.etf) continue;
-      const code = q.secid ? q.secid.split('.')[1] : q.label;
+      const code = quoteCode(q);
       if (quotes[code] && isFinite(quotes[code].price) && quotes[code].price > 0) continue; // 已有精准数据
       if (etfPct[code] === undefined) continue;
       const prev = (isFinite(closes[code]) && closes[code] > 0) ? closes[code] : (q.base || 0);
@@ -682,11 +687,10 @@ async function fetchQuotes() {
     }
   }
 
-  // 5) 加密货币：Binance 官方数据镜像（REST 兜底）
+  // 5) Binance 行情（REST 兜底）：BTC 现货 + BZUSDT 布伦特原油 U 本位合约
   // 若 WebSocket 实时流已连接，跳过 REST——避免 5 分钟轮询的旧值覆盖实时值造成价格回跳。
   // WS 断线时（含首屏尚未连接），REST 继续兜底，保证永远有数据。
-  const wsLive = btcWs && btcWs.readyState === 1;
-  if (!wsLive) {
+  if (!btcStream.isLive()) {
     try {
       const r = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22%5D');
       const arr = await r.json();
@@ -697,74 +701,111 @@ async function fetchQuotes() {
       console.warn('加密行情获取失败（Binance REST）', e);
     }
   }
+  // BZUSDT 是 U 本位永续合约（标的：布伦特原油），不是现货；须走 fapi 而非 data-api。
+  if (!bzStream.isLive()) {
+    try {
+      const r = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BZUSDT');
+      const it = await r.json();
+      const price = +(it && it.lastPrice), pct = +(it && it.priceChangePercent);
+      if (isFinite(price) && price > 0) {
+        quotes.BZUSDT = { price: price, pct: isFinite(pct) ? pct : null };
+      }
+    } catch (e) {
+      console.warn('布伦特原油行情获取失败（Binance Futures REST）', e);
+    }
+  }
 }
 
-// ---------- BTC 实时推送（Binance 官方 WebSocket 免 Key 流） ----------
-// 端点 wss://data-stream.binance.vision/ws/btcusdt@ticker：官方约 1 秒推送一次最新价
-// 字段 c=最新价 P=24h涨跌幅。带断线指数退避重连 + 后台挂起/前台恢复 + 首屏 REST 兜底（见 fetchQuotes）
-let btcWs = null;
-let btcWsRetry = 0;
-let btcWsTimer = null;
-let btcWsStopped = false;
-let lastBtcPushAt = 0;
-function connectBtcStream() {
-  if (btcWsStopped || typeof WebSocket === 'undefined') return;
-  if (btcWs && (btcWs.readyState === 0 || btcWs.readyState === 1)) return; // 连接中/已连接，不重复建连
-  let ws;
-  try {
-    ws = new WebSocket('wss://data-stream.binance.vision:443/ws/btcusdt@ticker');
-  } catch (e) {
-    scheduleBtcReconnect();
-    return;
+// ---------- Binance 实时推送（现货 BTC + U 本位合约 BZUSDT） ----------
+// BTC: wss://data-stream.binance.vision:443/ws/btcusdt@ticker
+// BZUSDT: wss://fstream.binance.com/market/ws/bzusdt@ticker
+// 注意：币安 USD-M WebSocket 已按 /public、/market、/private 分流，@ticker 属 /market；
+// 旧的无路由地址会连接成功但静默不推送，必须带 /market。
+// 两条流共用退避重连 + 后台挂起/前台恢复逻辑；REST 兜底见 fetchQuotes。
+function createPriceStream(cfg) {
+  const s = { ws: null, retry: 0, timer: null, stopped: false, lastPushAt: 0 };
+
+  function connect() {
+    if (s.stopped || typeof WebSocket === 'undefined') return;
+    if (s.ws && (s.ws.readyState === 0 || s.ws.readyState === 1)) return; // 连接中/已连接
+    let ws;
+    try { ws = new WebSocket(cfg.url); }
+    catch (e) { schedule(); return; }
+    s.ws = ws; // 全局只保存最新实例；回调用局部 ws 判定归属，避免旧连接误清新引用
+    ws.onopen = function () { s.retry = 0; };
+    ws.onmessage = function (evt) {
+      if (ws !== s.ws) return;
+      let d;
+      try { d = JSON.parse(evt.data); } catch (e) { return; }
+      const v = cfg.parse(d); // { price, pct } 或 null
+      if (!v) return;
+      const now = Date.now();
+      if (now - s.lastPushAt < 800) return; // 节流，避免极端行情下 DOM 刷新过密
+      s.lastPushAt = now;
+      cfg.apply(v);
+      updateQuotes(); // 走按位差分滚动（v3 规范第 6 点）
+    };
+    ws.onerror = function () { /* 交给 onclose 统一重连，避免重复 */ };
+    ws.onclose = function () {
+      if (ws !== s.ws) return; // 旧连接的关闭事件，不影响当前引用
+      s.ws = null;
+      if (!s.stopped) schedule();
+    };
   }
-  btcWs = ws; // 全局只保存最新实例；回调里用局部 ws 判定归属，避免旧连接误清新引用
-  ws.onopen = function () {
-    btcWsRetry = 0; // 连上后重置退避
+
+  function schedule() {
+    if (s.stopped || s.timer) return;
+    const delay = Math.min(30000, 1000 * Math.pow(2, s.retry++)); // 1s→2s→4s…上限 30s
+    s.timer = setTimeout(function () { s.timer = null; connect(); }, delay);
+  }
+
+  function stop() {
+    s.stopped = true;
+    if (s.timer) { clearTimeout(s.timer); s.timer = null; }
+    if (s.ws) { try { s.ws.close(); } catch (e) {} s.ws = null; }
+    s.retry = 0;
+  }
+
+  function resume() {
+    s.stopped = false;
+    connect();
+  }
+
+  return {
+    connect: connect,
+    stop: stop,
+    resume: resume,
+    isLive: function () { return !!s.ws && s.ws.readyState === 1; }
   };
-  ws.onmessage = function (evt) {
-    if (ws !== btcWs) return; // 已是被替换的旧连接，忽略其消息
-    let d;
-    try { d = JSON.parse(evt.data); } catch (e) { return; }
+}
+
+const btcStream = createPriceStream({
+  url: 'wss://data-stream.binance.vision:443/ws/btcusdt@ticker',
+  parse: function (d) {
     const price = +d.c, pct = +d.P;
-    if (!isFinite(price) || price <= 0) return;
-    const now = Date.now();
-    // 节流：最快 800ms 更新一次，避免极端行情下 DOM 刷新过密
-    if (now - lastBtcPushAt < 800) return;
-    lastBtcPushAt = now;
-    crypto.BTC = { price: price, pct: isFinite(pct) ? pct : null };
-    updateQuotes(); // 走按位差分滚动（v3 规范第 6 点）
-  };
-  ws.onerror = function () { /* 交给 onclose 统一重连，避免重复 */ };
-  ws.onclose = function () {
-    if (ws !== btcWs) return; // 旧连接的关闭事件，不影响当前引用
-    btcWs = null;
-    if (!btcWsStopped) scheduleBtcReconnect();
-  };
-}
-function scheduleBtcReconnect() {
-  if (btcWsStopped || btcWsTimer) return;
-  const delay = Math.min(30000, 1000 * Math.pow(2, btcWsRetry++)); // 1s→2s→4s…上限 30s
-  btcWsTimer = setTimeout(function () {
-    btcWsTimer = null;
-    connectBtcStream();
-  }, delay);
-}
-function stopBtcStream() {
-  btcWsStopped = true;
-  if (btcWsTimer) { clearTimeout(btcWsTimer); btcWsTimer = null; }
-  if (btcWs) { try { btcWs.close(); } catch (e) {} btcWs = null; }
-  btcWsRetry = 0;
-}
-function resumeBtcStream() {
-  btcWsStopped = false;
-  connectBtcStream();
-}
+    return isFinite(price) && price > 0 ? { price: price, pct: isFinite(pct) ? pct : null } : null;
+  },
+  apply: function (v) { crypto.BTC = v; }
+});
+
+// BZUSDT 是 U 本位永续合约（标的：布伦特原油，1 桶），字段同为 c=最新价 P=24h涨跌幅
+const bzStream = createPriceStream({
+  url: 'wss://fstream.binance.com/market/ws/bzusdt@ticker',
+  parse: function (d) {
+    const price = +d.c, pct = +d.P;
+    return isFinite(price) && price > 0 ? { price: price, pct: isFinite(pct) ? pct : null } : null;
+  },
+  apply: function (v) { quotes.BZUSDT = v; }
+});
+
 // iOS/移动端切后台会挂起 WebSocket，回前台主动补连；REST 5 分钟轮询仍会兜底刷新
 document.addEventListener('visibilitychange', function () {
   if (document.hidden) {
-    stopBtcStream();
+    btcStream.stop();
+    bzStream.stop();
   } else {
-    resumeBtcStream();
+    btcStream.resume();
+    bzStream.resume();
     // 前台立即拉一次 REST，补上后台期间的行情
     fetchQuotes().then(function () { saveCache(); updateQuotes(); });
   }
@@ -823,7 +864,7 @@ function quoteValue(marketId, code) {
 function renderStats(m) {
   let html = '';
   for (const q of m.quotes) {
-    const code = m.id === 'crypto' ? q.label : q.secid.split('.')[1];
+    const code = quoteCode(q);
     html += '<div class="stat" data-market="' + m.id + '" data-code="' + code + '">' +
       '<span class="stat-label">' + q.label + '</span>' +
       '<span class="stat-val">--</span>' +
@@ -1009,7 +1050,7 @@ function renderClockCard(m, st, now) {
 
   let statsHtml = '';
   for (const q of m.quotes) {
-    const code = m.id === 'crypto' ? q.label : q.secid.split('.')[1];
+    const code = quoteCode(q);
     statsHtml += '<div class="stat" data-market="' + m.id + '" data-code="' + code + '">' +
       '<span class="stat-label">' + q.label + '</span>' +
       '<span class="stat-val">--</span>' +
@@ -1397,8 +1438,9 @@ if (document.fonts && document.fonts.ready) {
 }
 window.addEventListener('load', function () { setTimeout(fitUsCountdown, 150); });
 fetchQuotes().then(function () { saveCache(); updateQuotes(); });
-// BTC 实时推送：WebSocket 连上后约 1 秒一次更新（REST 仅作首屏/断网兜底）
-connectBtcStream();
+// Binance 实时推送：BTC 现货 + BZUSDT 布伦特原油合约（REST 仅作首屏/断网兜底）
+btcStream.connect();
+bzStream.connect();
 // 行情轮询：5 分钟一次。东财对高频请求有 IP 级风控（空响应），1 分钟会触发封禁，故拉长间隔。
-// 注：轮询里的 REST 仍会覆盖 BTC，但值与 WS 同源、误差极小；WS 持续推送会立即纠正，不影响实时性。
+// 注：WS 已连接时轮询会跳过同源 REST，避免旧值覆盖实时价；断线时 REST 继续兜底。
 setInterval(function () { fetchQuotes().then(function () { saveCache(); updateQuotes(); }); }, 300000);

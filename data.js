@@ -117,9 +117,9 @@ const MARKETS = [
   {
     id: 'brent',
     name: '布伦特原油',
-    sub: 'ICE',
+    sub: 'Binance',
     quotes: [
-      { label: '布伦特原油', secid: '112.B00Y' }
+      { label: '布伦特原油', code: 'BZUSDT', binanceFutures: 'BZUSDT' }
     ]
   }
 ];
