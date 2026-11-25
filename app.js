@@ -146,13 +146,35 @@ function btcFloatHtml(str) {
 // - 数值增→向上滚（旧值上移淡出、新值从底部进入）；数值减→向下滚
 // - 多位同时变化：从右向左（低位→高位）依次触发，相邻变化位延迟 40ms
 // - 颜色/倾斜/错落固定绑定在槽位 .dig 上，新旧字符都在同一槽位样式坐标系内
+// 动画状态绑定在槽位上：新数据到来时先结算上一轮动画，保证每个槽位永远只有一个有效字符，
+// 避免高频推送（WS ~1s/次）时 enter/exit 字符堆叠、撑破宽度导致数字换行。
+const btcSlotState = new WeakMap();
+function settleBtcSlot(digF) {
+  const st = btcSlotState.get(digF);
+  if (st) {
+    st.done = true;
+    if (st.timer) clearTimeout(st.timer);
+    if (st.enter) st.enter.removeEventListener('animationend', st.onEnd);
+    btcSlotState.delete(digF);
+  }
+  // 兜底：若出现历史遗留的多余 cell，只保留最后一个（enter 总是 append 在末尾）
+  const cells = digF.querySelectorAll('.dig-cell');
+  for (let i = 0; i < cells.length - 1; i++) {
+    if (cells[i].parentNode) cells[i].parentNode.removeChild(cells[i]);
+  }
+  const kept = cells[cells.length - 1];
+  if (kept) {
+    kept.className = 'dig-cell';
+    kept.style.animationDelay = '';
+  }
+  return kept ? kept.textContent : '';
+}
+
 function updateBtcDigits(valEl, newStr) {
   const digFs = valEl.querySelectorAll('.dig .dig-f');
+  // 先结算本轮之前所有槽位的动画，取到真实当前字符（enter 落定为当前值）
   let oldStr = '';
-  for (let i = 0; i < digFs.length; i++) {
-    const c = digFs[i].querySelector('.dig-cell:not(.dig-enter)');
-    oldStr += c ? c.textContent : '';
-  }
+  for (let i = 0; i < digFs.length; i++) oldStr += settleBtcSlot(digFs[i]);
   // 首次渲染 / 占位符 / 位数变化：直接重建（无差分可比），无动画
   if (!oldStr || oldStr === '--' || newStr === '--' || oldStr.length !== newStr.length) {
     valEl.innerHTML = btcFloatHtml(newStr);
@@ -182,18 +204,16 @@ function updateBtcDigits(valEl, newStr) {
     exitCell.style.animationDelay = delay + 's';
     digF.appendChild(enterCell);
 
-    let done = false;
+    const st = { enter: enterCell, exit: exitCell, done: false, timer: null, onEnd: null };
     const cleanup = function (e) {
       if (e && e.target !== enterCell) return; // 忽略冒泡的其它动画
-      if (done) return;
-      done = true;
-      if (exitCell.parentNode) exitCell.parentNode.removeChild(exitCell);
-      enterCell.classList.remove('dig-enter', 'roll-in-up', 'roll-in-down');
-      enterCell.style.animationDelay = '';
-      enterCell.removeEventListener('animationend', cleanup);
+      if (st.done) return;
+      settleBtcSlot(digF); // 统一结算：移除旧字符 + 多余 cell，enter 落定
     };
+    st.onEnd = cleanup;
     enterCell.addEventListener('animationend', cleanup);
-    setTimeout(cleanup, 700 + delay * 1000); // 兜底：动画被中断（如切后台）时仍清理
+    st.timer = setTimeout(cleanup, 700 + delay * 1000); // 兜底：动画被中断（如切后台）时仍清理
+    btcSlotState.set(digF, st);
   });
 }
 
