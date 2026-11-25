@@ -670,17 +670,20 @@ footer { margin-top: 40px; }
 }
 .mode-fullscreen .is-us-clock:not(.show-index) .us-cd-stage { display: flex; }
 .mode-fullscreen .is-us-clock.show-index .us-index-stage { display: flex; }
-/* 横屏灵动岛在左侧：倒计时舞台左侧额外留白（基础 7vw + 系统安全区），确保最左数字不被遮挡 */
+/* 横屏灵动岛在左侧：左边距 = 系统安全区 + 8px 余量，紧贴灵动岛但不遮挡；右侧同理。
+   数字块左对齐（不居中），避免真机上整体偏右、右边贴边。
+   --safe-l/--safe-r 仅供测试模拟真机安全区，线上自动 fallback 到 env() */
 .mode-fullscreen .is-us-clock:not(.show-index) .us-cd-stage {
-  padding-left: calc(7vw + env(safe-area-inset-left, 0px));
-  padding-right: 3vw;
+  padding-left: max(8px, var(--safe-l, env(safe-area-inset-left, 0px)));
+  padding-right: calc(var(--safe-r, env(safe-area-inset-right, 0px)) + 8px);
+  justify-content: flex-start;
 }
 
 /* 倒计时主角：标签 + 巨大 HH:MM:SS（冒号为浅色分隔符，数字走 Float 多色叠印） */
 .mode-fullscreen .us-cd-wrap {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start; /* 数字块左对齐，右侧留白由字号公式严格控制 */
   gap: 1.6vh;
 }
 .mode-fullscreen .us-cd-label {
@@ -689,13 +692,16 @@ footer { margin-top: 40px; }
   font-weight: 600;
   color: var(--muted);
   letter-spacing: 0.16em;
+  align-self: center; /* 数字块左对齐，但标签相对数字块居中 */
 }
 /* 提高特异性到 (0,3,0) 盖过 :is(.stat[data-market="crypto"] .stat-val, .float-num) 的 -0.05em，
    否则字距被覆盖、堆叠失效（曾导致字号实际只有 -0.05em） */
 .mode-fullscreen .is-us-clock .us-cd-time {
-  /* 8 字符 HH:MM:SS：实测 -0.12em 字距 + -0.12em 负 margin 时宽度系数≈2.6、数字重叠约 14% 字宽，
-     与参考截图一致。字号按安全可视宽度的 86% 撑满 → 高度占比约 66%；左右留白避开灵动岛 */
-  font-size: clamp(64px, calc((100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) * 0.86 / 2.6), 360px);
+  /* 8 字符 HH:MM:SS：-0.12em 字距 + -0.12em 负 margin → 宽度系数≈2.62、数字重叠约 14% 字宽。
+     字号按「真实可用宽度」算：扣掉左侧 padding(max(8px,安全区))、右侧安全区+8px，再取 95% 填充。
+     .dig 的倾斜位移会让首数字比 padding 右移约 0.06*font，已含在系数里。
+     数字块左对齐：左边距紧贴灵动岛，右边距真机约 40px、模拟器约 35px，均不溢出且尽量大 */
+  font-size: clamp(64px, calc((100vw - max(8px, var(--safe-l, env(safe-area-inset-left, 0px))) - var(--safe-r, env(safe-area-inset-right, 0px)) - 8px) * 0.95 / 2.62), 400px);
   font-weight: 900;
   letter-spacing: -0.12em;
   line-height: 0.9;
