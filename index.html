@@ -17,7 +17,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <script>
+    // 每次打开生成新的资源版本号，绕过 iOS 主屏 PWA / CDN 对静态文件的缓存，
+    // 确保改版后无需手动强刷即可加载最新 style.css / app.js（脚本在 body 末尾以此版本号注入）。
+    window.THD_VER = Date.now().toString(36);
+    document.write('<link rel="stylesheet" href="style.css?v=' + window.THD_VER + '">');
+  </script>
 </head>
 <body>
   <div class="rotate-hint">请横屏使用</div>
@@ -49,7 +54,10 @@
     </footer>
   </div>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script>
+    // 用同一个动态版本号加载脚本，绕过 iOS 主屏 PWA 的静态文件缓存，改版后自动生效。
+    document.write('<script src="data.js?v=' + window.THD_VER + '"><\/script>');
+    document.write('<script src="app.js?v=' + window.THD_VER + '"><\/script>');
+  </script>
 </body>
 </html>
