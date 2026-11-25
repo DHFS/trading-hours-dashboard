@@ -289,6 +289,22 @@ body {
 }
 .stat[data-market="crypto"] .stat-val .bd-sep { color: rgba(122, 196, 248, 0.55); } /* 分隔符浅青蓝 */
 
+/* 按位差分滚动（v3 规范第 6 点）：字符层可替换，进入字符绝对定位覆盖在旧字符上滑动 */
+.stat[data-market="crypto"] .stat-val .dig-f { position: relative; }
+.stat[data-market="crypto"] .stat-val .dig-cell { display: inline-block; white-space: pre; }
+.stat[data-market="crypto"] .stat-val .dig-cell.dig-enter { position: absolute; left: 0; top: 0; }
+/* 弹簧曲线近似（stiffness 300 / damping 28 / mass 0.9，临界阻尼，约 400ms） */
+.stat[data-market="crypto"] .stat-val .roll-out-up   { animation: btc-roll-out-up   .4s cubic-bezier(.25, 1, .5, 1) both; }
+.stat[data-market="crypto"] .stat-val .roll-in-up    { animation: btc-roll-in-up    .4s cubic-bezier(.25, 1, .5, 1) both; }
+.stat[data-market="crypto"] .stat-val .roll-out-down { animation: btc-roll-out-down .4s cubic-bezier(.25, 1, .5, 1) both; }
+.stat[data-market="crypto"] .stat-val .roll-in-down  { animation: btc-roll-in-down  .4s cubic-bezier(.25, 1, .5, 1) both; }
+/* 涨：旧值上移(-40%)淡出缩小，新值从底部(+40%)进入 */
+@keyframes btc-roll-out-up   { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(-40%) scale(.94); opacity: 0; } }
+@keyframes btc-roll-in-up    { from { transform: translateY(40%) scale(.94); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+/* 跌：旧值下移(+40%)淡出缩小，新值从顶部(-40%)进入 */
+@keyframes btc-roll-out-down { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(40%) scale(.94); opacity: 0; } }
+@keyframes btc-roll-in-down  { from { transform: translateY(-40%) scale(.94); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
 /* ---------- 底部（详情 + 倒计时 + 时间轴），贴底对齐 ---------- */
 .card-foot {
   margin-top: auto;

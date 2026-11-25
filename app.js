@@ -127,9 +127,11 @@ function btcFloatHtml(str) {
   for (const ch of str) {
     if (ch >= '0' && ch <= '9') {
       const i = n % TILT.length;
-      // 数字：按 D1/D2/D3/D4 明暗节奏循环取色；外层做静态倾斜错落，内层做呼吸浮动动画（相位错开，参照 4.1 节）
+      // 数字：颜色/倾斜/错落绑定「槽位」(.dig)，字符放在独立 .dig-cell 层，便于按位差分滚动（v3 规范 6.2）
+      // .dig 外层静态样式固定；.dig-f 内层呼吸浮动（相位错开）；.dig-cell 字符层可替换/滚动
       html += '<span class="dig" style="color:' + C[n % 4] + ';--t:' + TILT[i] + 'deg;--y:' + LIFT[i] + 'em">' +
-        '<span class="dig-f" style="animation-delay:-' + (n * 0.9).toFixed(1) + 's">' + ch + '</span></span>';
+        '<span class="dig-f" style="animation-delay:-' + (n * 0.9).toFixed(1) + 's">' +
+        '<span class="dig-cell">' + ch + '</span></span></span>';
       n++;
     } else {
       // 千分位逗号 / 小数点：浅青蓝，弱化
@@ -137,6 +139,62 @@ function btcFloatHtml(str) {
     }
   }
   return html;
+}
+
+// BTC 价格按位差分滚动（严格按 ios_standby_floatv3.md 第 6 点）
+// - 仅变化的数位触发动画，未变化位绝对静止
+// - 数值增→向上滚（旧值上移淡出、新值从底部进入）；数值减→向下滚
+// - 多位同时变化：从右向左（低位→高位）依次触发，相邻变化位延迟 40ms
+// - 颜色/倾斜/错落固定绑定在槽位 .dig 上，新旧字符都在同一槽位样式坐标系内
+function updateBtcDigits(valEl, newStr) {
+  const digFs = valEl.querySelectorAll('.dig .dig-f');
+  let oldStr = '';
+  for (let i = 0; i < digFs.length; i++) {
+    const c = digFs[i].querySelector('.dig-cell:not(.dig-enter)');
+    oldStr += c ? c.textContent : '';
+  }
+  // 首次渲染 / 占位符 / 位数变化：直接重建（无差分可比），无动画
+  if (!oldStr || oldStr === '--' || newStr === '--' || oldStr.length !== newStr.length) {
+    valEl.innerHTML = btcFloatHtml(newStr);
+    return;
+  }
+  if (oldStr === newStr) return; // 完全没变，不动 DOM（绝对静止）
+
+  const up = Number(newStr) > Number(oldStr); // 方向语义
+  const changed = [];
+  for (let i = 0; i < newStr.length; i++) if (oldStr[i] !== newStr[i]) changed.push(i);
+  changed.sort(function (a, b) { return b - a; }); // 低位→高位（右→左）
+
+  changed.forEach(function (idx, k) {
+    const digF = digFs[idx];
+    if (!digF) return;
+    const exitCell = digF.querySelector('.dig-cell:not(.dig-enter)');
+    if (!exitCell) return;
+    const delay = k * 0.04; // 40ms 交错
+
+    // 进入字符：绝对定位覆盖在旧字符上，滚动进入
+    const enterCell = document.createElement('span');
+    enterCell.className = 'dig-cell dig-enter ' + (up ? 'roll-in-up' : 'roll-in-down');
+    enterCell.textContent = newStr[idx];
+    enterCell.style.animationDelay = delay + 's';
+    // 离开字符：相对定位保持占位（宽度不塌），滚动退出
+    exitCell.classList.add('dig-exit', up ? 'roll-out-up' : 'roll-out-down');
+    exitCell.style.animationDelay = delay + 's';
+    digF.appendChild(enterCell);
+
+    let done = false;
+    const cleanup = function (e) {
+      if (e && e.target !== enterCell) return; // 忽略冒泡的其它动画
+      if (done) return;
+      done = true;
+      if (exitCell.parentNode) exitCell.parentNode.removeChild(exitCell);
+      enterCell.classList.remove('dig-enter', 'roll-in-up', 'roll-in-down');
+      enterCell.style.animationDelay = '';
+      enterCell.removeEventListener('animationend', cleanup);
+    };
+    enterCell.addEventListener('animationend', cleanup);
+    setTimeout(cleanup, 700 + delay * 1000); // 兜底：动画被中断（如切后台）时仍清理
+  });
 }
 
 // 分钟数 -> "HH:MM"（用于进度条关键时间刻度标签）
@@ -922,8 +980,8 @@ function updateQuotes() {
     const v = quoteValue(el.dataset.market, el.dataset.code);
     const valEl = el.querySelector('.stat-val');
     if (el.dataset.market === 'crypto') {
-      // 加密货币：Float 风格拆分数字渲染（仅整数，无分隔符）
-      valEl.innerHTML = btcFloatHtml(fmtBtcPrice(v.price));
+      // 加密货币：按位差分滚动（仅变化数位跳动，遵循 v3 规范第 6 点）
+      updateBtcDigits(valEl, fmtBtcPrice(v.price));
     } else {
       valEl.textContent = fmtPrice(v.price);
     }
