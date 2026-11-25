@@ -2,7 +2,7 @@
   "name": "交易时段看板",
   "short_name": "交易时钟",
   "description": "以北京时间为基准的全球交易时段看板：A股、港股、日经、韩股、美股、加密货币实时开休市状态与行情。",
-  "start_url": "./index.html#crypto",
+  "start_url": "./index.html?v=20261125c#crypto",
   "scope": "./",
   "display": "standalone",
   "orientation": "landscape",

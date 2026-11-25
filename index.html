@@ -59,5 +59,28 @@
     document.write('<script src="data.js?v=' + window.THD_VER + '"><\/script>');
     document.write('<script src="app.js?v=' + window.THD_VER + '"><\/script>');
   </script>
+  <script>
+    // 注册 Service Worker：同源资源网络优先，破解 iOS 主屏 PWA 缓存旧文件导致改版不生效。
+    // 新 SW 接管后自动刷新一次，让本次打开立刻用上新版（用 sessionStorage 防循环刷新）。
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').then(function (reg) {
+          const fresh = !navigator.serviceWorker.controller; // 本次由旧页面/无 SW 提供
+          reg.addEventListener('updatefound', function () {
+            const nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', function () {
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                if (!sessionStorage.getItem('thd_sw_reloaded')) {
+                  sessionStorage.setItem('thd_sw_reloaded', '1');
+                  window.location.reload();
+                }
+              }
+            });
+          });
+        }).catch(function () {});
+      });
+    }
+  </script>
 </body>
 </html>
