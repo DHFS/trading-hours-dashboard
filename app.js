@@ -650,17 +650,93 @@ async function fetchQuotes() {
     }
   }
 
-  // 5) 加密货币：Binance 官方数据镜像（api.binance.com 被墙，改用镜像域名）
-  try {
-    const r = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22%5D');
-    const arr = await r.json();
-    for (const it of arr) {
-      crypto[it.symbol.replace('USDT', '')] = { price: +it.lastPrice, pct: +it.priceChangePercent };
+  // 5) 加密货币：Binance 官方数据镜像（REST 兜底）
+  // 若 WebSocket 实时流已连接，跳过 REST——避免 5 分钟轮询的旧值覆盖实时值造成价格回跳。
+  // WS 断线时（含首屏尚未连接），REST 继续兜底，保证永远有数据。
+  const wsLive = btcWs && btcWs.readyState === 1;
+  if (!wsLive) {
+    try {
+      const r = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22%5D');
+      const arr = await r.json();
+      for (const it of arr) {
+        crypto[it.symbol.replace('USDT', '')] = { price: +it.lastPrice, pct: +it.priceChangePercent };
+      }
+    } catch (e) {
+      console.warn('加密行情获取失败（Binance REST）', e);
     }
-  } catch (e) {
-    console.warn('加密行情获取失败（Binance）', e);
   }
 }
+
+// ---------- BTC 实时推送（Binance 官方 WebSocket 免 Key 流） ----------
+// 端点 wss://data-stream.binance.vision/ws/btcusdt@ticker：官方约 1 秒推送一次最新价
+// 字段 c=最新价 P=24h涨跌幅。带断线指数退避重连 + 后台挂起/前台恢复 + 首屏 REST 兜底（见 fetchQuotes）
+let btcWs = null;
+let btcWsRetry = 0;
+let btcWsTimer = null;
+let btcWsStopped = false;
+let lastBtcPushAt = 0;
+function connectBtcStream() {
+  if (btcWsStopped || typeof WebSocket === 'undefined') return;
+  if (btcWs && (btcWs.readyState === 0 || btcWs.readyState === 1)) return; // 连接中/已连接，不重复建连
+  let ws;
+  try {
+    ws = new WebSocket('wss://data-stream.binance.vision:443/ws/btcusdt@ticker');
+  } catch (e) {
+    scheduleBtcReconnect();
+    return;
+  }
+  btcWs = ws; // 全局只保存最新实例；回调里用局部 ws 判定归属，避免旧连接误清新引用
+  ws.onopen = function () {
+    btcWsRetry = 0; // 连上后重置退避
+  };
+  ws.onmessage = function (evt) {
+    if (ws !== btcWs) return; // 已是被替换的旧连接，忽略其消息
+    let d;
+    try { d = JSON.parse(evt.data); } catch (e) { return; }
+    const price = +d.c, pct = +d.P;
+    if (!isFinite(price) || price <= 0) return;
+    const now = Date.now();
+    // 节流：最快 800ms 更新一次，避免极端行情下 DOM 刷新过密
+    if (now - lastBtcPushAt < 800) return;
+    lastBtcPushAt = now;
+    crypto.BTC = { price: price, pct: isFinite(pct) ? pct : null };
+    updateQuotes(); // 走按位差分滚动（v3 规范第 6 点）
+  };
+  ws.onerror = function () { /* 交给 onclose 统一重连，避免重复 */ };
+  ws.onclose = function () {
+    if (ws !== btcWs) return; // 旧连接的关闭事件，不影响当前引用
+    btcWs = null;
+    if (!btcWsStopped) scheduleBtcReconnect();
+  };
+}
+function scheduleBtcReconnect() {
+  if (btcWsStopped || btcWsTimer) return;
+  const delay = Math.min(30000, 1000 * Math.pow(2, btcWsRetry++)); // 1s→2s→4s…上限 30s
+  btcWsTimer = setTimeout(function () {
+    btcWsTimer = null;
+    connectBtcStream();
+  }, delay);
+}
+function stopBtcStream() {
+  btcWsStopped = true;
+  if (btcWsTimer) { clearTimeout(btcWsTimer); btcWsTimer = null; }
+  if (btcWs) { try { btcWs.close(); } catch (e) {} btcWs = null; }
+  btcWsRetry = 0;
+}
+function resumeBtcStream() {
+  btcWsStopped = false;
+  connectBtcStream();
+}
+// iOS/移动端切后台会挂起 WebSocket，回前台主动补连；REST 5 分钟轮询仍会兜底刷新
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    stopBtcStream();
+  } else {
+    resumeBtcStream();
+    // 前台立即拉一次 REST，补上后台期间的行情
+    fetchQuotes().then(function () { saveCache(); updateQuotes(); });
+  }
+});
 
 // ---------- 渲染 ----------
 function renderTimeline(segs, nowMinute, showNow) {
@@ -1150,5 +1226,8 @@ setInterval(updateClock, 1000);
 setInterval(updateCountdowns, 1000);
 setInterval(refresh, 60000);
 fetchQuotes().then(function () { saveCache(); updateQuotes(); });
+// BTC 实时推送：WebSocket 连上后约 1 秒一次更新（REST 仅作首屏/断网兜底）
+connectBtcStream();
 // 行情轮询：5 分钟一次。东财对高频请求有 IP 级风控（空响应），1 分钟会触发封禁，故拉长间隔。
+// 注：轮询里的 REST 仍会覆盖 BTC，但值与 WS 同源、误差极小；WS 持续推送会立即纠正，不影响实时性。
 setInterval(function () { fetchQuotes().then(function () { saveCache(); updateQuotes(); }); }, 300000);
