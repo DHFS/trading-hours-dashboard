@@ -946,6 +946,41 @@ function renderUsClockCard(m, st, now) {
   '</article>';
 }
 
+// 用页面真实字体实时测量倒计时宽度，自动把字号缩放到「刚好填满可用宽度且不溢出」。
+// 背景：不同设备字体（iOS SF Pro Rounded 等）宽度不同，固定 vw 公式在真机会溢出。
+// 数字所有尺寸（字距/负 margin/位移）均为 em，宽度严格正比于字号，测一次即可精确换算。
+function fitUsCountdown() {
+  const cd = document.querySelector('.is-us-clock:not(.show-index) .us-cd-time');
+  if (!cd) return;
+  const stage = cd.closest('.us-cd-stage');
+  const cs = getComputedStyle(stage);
+  const padL = parseFloat(cs.paddingLeft) || 0;
+  const padR = parseFloat(cs.paddingRight) || 0;
+  const avail = window.innerWidth - padL - padR - 24; // 24px 安全余量，杜绝贴边截断
+  if (avail <= 0) return;
+  // 基准字号测量真实渲染宽度（含负 margin 叠印后的实际占位）
+  cd.style.fontSize = '100px';
+  const baseW = cd.getBoundingClientRect().width;
+  if (!baseW) return;
+  let target = 100 * avail / baseW;
+  // 高度保护：数字高度不超过可用高度的 ~72%（line-height 0.9）
+  const maxByH = window.innerHeight * 0.72 / 0.9;
+  if (target > maxByH) target = maxByH;
+  target = Math.max(64, Math.floor(target));
+  cd.style.fontSize = target + 'px';
+  // 迭代校验：负 margin/字距在不同字体下可能非线性，实测右边界再收敛 2 次
+  for (let i = 0; i < 2; i++) {
+    const digs = cd.querySelectorAll('.dig');
+    if (!digs.length) break;
+    let right = 0;
+    digs.forEach(function (d) { right = Math.max(right, d.getBoundingClientRect().right); });
+    const limit = window.innerWidth - padR - 12;
+    if (right <= limit) break; // 已在安全区内
+    const cur = parseFloat(getComputedStyle(cd).fontSize);
+    cd.style.fontSize = Math.max(64, Math.floor(cur * limit / right)) + 'px';
+  }
+}
+
 function renderClockCard(m, st, now) {
   // 加密货币：极简桌面时钟——价格是绝对主体。右上角 BTC 角标，左下角涨跌+状态，无导航栏、无时间轴。
   if (m.id === 'crypto') {
@@ -1030,6 +1065,7 @@ function renderFullscreen(withFade) {
     setTimeout(function () {
       grid.innerHTML = html;
       updateQuotes();
+      fitUsCountdown();
       requestAnimationFrame(function () {
         requestAnimationFrame(function () { grid.classList.remove('fade-out'); });
       });
@@ -1038,6 +1074,7 @@ function renderFullscreen(withFade) {
   } else {
     grid.innerHTML = html;
     updateQuotes();
+    fitUsCountdown();
   }
 }
 
@@ -1258,7 +1295,11 @@ function updateCountdowns() {
   document.querySelectorAll('.us-cd-time[data-target]').forEach((el) => {
     const t = +el.dataset.target;
     if (!t) return;
+    const prevW = el.getBoundingClientRect().width;
     updateFloatDigits(el, fmtClockCountdown(t - nowMs));
+    // 位数变化（如跨天/小时进位）会改变宽度，重新适配避免溢出/偏小
+    const newW = el.getBoundingClientRect().width;
+    if (Math.abs(newW - prevW) > 1) fitUsCountdown();
   });
 }
 
@@ -1346,6 +1387,15 @@ updateClock();
 setInterval(updateClock, 1000);
 setInterval(updateCountdowns, 1000);
 setInterval(refresh, 60000);
+// 视口尺寸变化时（横竖屏、地址栏收缩）重新适配美股倒计时字号，确保始终不溢出
+window.addEventListener('resize', fitUsCountdown);
+window.addEventListener('orientationchange', function () { setTimeout(fitUsCountdown, 120); });
+// 字体异步加载完成后必须重测：首屏可能用到后备字体，真实字体（Nunito/SF Pro Rounded）
+// 通常更宽，加载完不重测就会溢出——这正是真机被截断的隐蔽根因。
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(function () { setTimeout(fitUsCountdown, 50); });
+}
+window.addEventListener('load', function () { setTimeout(fitUsCountdown, 150); });
 fetchQuotes().then(function () { saveCache(); updateQuotes(); });
 // BTC 实时推送：WebSocket 连上后约 1 秒一次更新（REST 仅作首屏/断网兜底）
 connectBtcStream();
