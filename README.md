@@ -1,115 +1,189 @@
-# 交易时段看板（北京时间）
+<div align="center">
 
-一个「打开即知」的全球交易时段看板。以北京时间为基准，实时显示 A股、港股、日经、韩股、美股、加密货币（BTC）与布伦特原油的开休市状态、倒计时和行情，并正确处理节假日、美股夏令时与提前收盘日。
+# Trading Hours Dashboard · 交易时段看板
 
-线上地址：<https://dhfs.github.io/trading-hours-dashboard/>
+**以北京时间（UTC+8）为统一锚点的全球金融市场开休市看板 & iOS StandBy "Float" 风格桌面时钟（PWA）**
 
-设计为 iPhone 横屏桌面时钟（PWA）优化：全屏、纯黑画布、巨大 Float 数字、按位差分滚动，可在约 1 米距离辨认关键数字。
+[![Version](https://img.shields.io/badge/version-v0.11.0-blue.svg)](https://github.com/DHFS/trading-hours-dashboard/releases/tag/v0.11.0)
+[![Stack](https://img.shields.io/badge/stack-HTML%20%2B%20CSS%20%2B%20Vanilla%20JS-informational.svg)](#项目结构)
+[![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](#快速上手)
+[![PWA](https://img.shields.io/badge/PWA-iPhone%20StandBy%20Ready-black.svg)](#方式二安装为-iphone-横屏桌面时钟pwa)
+[![Live Demo](https://img.shields.io/badge/demo-GitHub%20Pages-success.svg)](https://dhfs.github.io/trading-hours-dashboard/)
 
-## 特性
+[🌐 在线体验 Live Demo](https://dhfs.github.io/trading-hours-dashboard/) · [📱 直达桌面时钟](https://dhfs.github.io/trading-hours-dashboard/#crypto) · [📐 设计规范 (Float v3.1)](DESIGN.md) · [📝 更新日志](#版本日志)
 
-- 北京时间基准（`Asia/Shanghai`），与访问者所在时区无关。
-- 7 个市场：A股、港股、日经、韩股、美股、加密货币（仅 BTC）、布伦特原油。
-- 7 种状态：交易中、午间休市、盘前、盘后、隔夜休市、周末休市、休市（节假日）。
-- 普通多卡片模式：加密货币置顶，其余市场按距下一次开盘时间动态升序排列。
-- 全屏时钟模式：hash 切换市场，点击/左右滑动切换；分页圆点仅在切换后短暂显示。
-- BTC 现货与布伦特原油（`BZUSDT` 合约）均接入 Binance WebSocket 实时推送；指数类行情 5 分钟轮询以规避数据源风控。
-- 美股隔夜/周末/节假日显示「距开盘」倒计时；盘前/盘中/盘后显示纳斯达克指数整数。
-- PWA 支持：主屏图标、独立显示、Service Worker 网络优先缓存，改版后无需手动强刷。
-- 纯静态，无后端、无框架、无构建步骤，可直接部署 GitHub Pages。
+</div>
 
-## 设计标准
+---
 
-完整视觉与动效规范见 [DESIGN.md](DESIGN.md)，包括：
+## 项目简介
 
-- Float v3 三层数字结构与按位差分滚动规则
-- 纯黑画布、多色预设、错落倾斜、呼吸动画
-- 实时字体测量与右侧防截断策略
-- BTC / 美股全屏卡片细则
-- PWA 缓存与验收清单
+跨市场交易者最常遇到的困扰之一，是不断在脑中换算东京、首尔、伦敦、纽约的夏/冬令时与官方假期。**Trading Hours Dashboard** 采用 **一套引擎、两种形态** 的设计理念，让全球市场脉搏做到「打开即知」：
 
-项目从零重建所需的提示词见 [PROMPT.md](PROMPT.md)。
+| 形态 | 适用场景 | 交互与视觉特征 |
+| :--- | :--- | :--- |
+| **网页 Bento 看板** | 电脑 / 手机日常查盘 | 桌面端自适应 3 列 Bento 网格一屏尽览 7 大市场；交易中自动置顶，其余按距开盘时间排序；24 小时分段进度条与实时指针；顶部切换涨跌色与连接状态胶囊 |
+| **Float 桌面时钟** | iPhone / iPad 横屏摆台（PWA） | 全 7 市场统一的 **iOS StandBy "Float"** 纯黑 OLED 画布；巨大双拼色叠印圆体数字、冷白渐变双圆球冒号、按位差分滚动；交易看主力指数，休市看精确倒计时 |
 
-## 文件结构
+> **无缝互通**：在网页看板点击任意市场卡片（或顶部「桌面时钟模式」）即可无刷新进入该市场的全屏 Float 时钟；在全屏时钟轻触屏幕呼出控制条点击「返回看板」即可回到总览。
+
+---
+
+## 核心特性
+
+- **北京时间基准（`Asia/Shanghai`）**：无论访问者身处哪个国家或设备时区，全站时间与倒计时均精确锁定北京时间。
+- **7 大市场 × 7 种状态**：覆盖 **加密货币（BTC）、A 股、港股、日经、韩股、美股、布伦特原油**，精确区分 `交易中` / `午间休市` / `盘前` / `盘后` / `隔夜休市` / `周末休市` / `休市（节假日）`。
+- **单点真理时间轴**：24 小时进度条由逐分钟状态采样自动合并生成，确保任何时刻白色当前时间游标所在色块与状态徽章 100% 一致（完美适配美股提前收盘日与跨午夜边界）。
+- **跨年动态夏令时 & 2026–2027 日历**：
+  - 美股夏令时（3 月第 2 个周日 – 11 月第 1 个周日）与英国夏令时（3 月最后周日 – 10 月最后周日）按年份动态推算，告别跨年硬编码；
+  - 内置 2026–2027 年上交所、港交所（含半日市）、JPX、KRX、NYSE（含提前收盘日）及 ICE Futures Europe 休市日历，超范围自动提示。
+- **ICE 布伦特原油官方时段**：行情接入 Binance U 本位永续合约 `BZUSDT` 实时流，开休市判定严格遵循 ICE Futures Europe（伦敦周一至周五 01:00–23:00 交易，每日 23:00–01:00 维护休市，自动随英国夏/冬令时换算至北京时间）。
+- **全 7 市场 iOS StandBy "Float" 桌面时钟**：
+  - 6 套精选配色（经典蔚蓝 + 5 套双拼波普预设）+ 随机配色，支持即时切换与持久化；
+  - 独立冷白渐变双圆球冒号（静止不参与彩色混合）+ 低位向高位 40ms 交错差分滚动动画；
+  - 运行时真实字体测宽拟合（`fitFloatStage()`）+ 左/右横屏灵动岛安全区双向适配，绝不截断溢出；
+  - 内置 **夜间暗红护眼模式**、**省电静默模式**（暂停呼吸动画降低插电发热）、**每 3 分钟 ±4px OLED 防烧屏像素微移**。
+- **涨跌色系与多源行情兜底**：默认统一 **绿涨红跌**，看板顶部可一键切换为「红涨绿跌」；指数多源（腾讯财经 / 东方财富 / ETF 估算）与 Binance 双路 WebSocket（`BTCUSDT` / `BZUSDT`）自动降级，支持 `localStorage` 缓存与状态指示。
+- **零构建零依赖**：纯原生 HTML / CSS / JS，无打包步骤、无后端服务器要求，开箱即可托管于任何静态服务器或 GitHub Pages。
+
+---
+
+## 快速上手
+
+### 方式一：直接使用线上版
+
+直接访问官方托管站点：**<https://dhfs.github.io/trading-hours-dashboard/>**
+
+- 首页默认进入 **网页多市场看板**。
+- 可通过 URL Hash 直达任意市场的全屏时钟，例如：
+  `#crypto` · `#aShare` · `#hk` · `#jp` · `#kr` · `#us` · `#brent`
+
+### 方式二：安装为 iPhone 横屏桌面时钟（PWA）
+
+1. 在 iPhone 上使用 **Safari** 打开 <https://dhfs.github.io/trading-hours-dashboard/>。
+2. 点击底部工具栏的 **「分享」** 按钮 → 选择 **「添加到主屏幕」** → 确认添加。
+3. 从桌面「交易时钟」图标启动（默认全屏横屏进入 `#crypto`），将手机横置在 MagSafe 支架上即可作为桌面时钟长亮使用。
+
+> [!TIP]
+> **升级提示**：从早期版本升级至 `v0.11.0` 时，由于 `manifest.json` 的 `start_url` 已更新版本号（`?v=0.11.0`），请先长按删除旧的主屏幕「交易时钟」图标，再用 Safari 重新「添加到主屏幕」，即可绕过 iOS PWA 旧启动条目缓存。
+
+#### 桌面时钟手势与快捷键速查
+
+| 操作 | 效果 |
+| :--- | :--- |
+| **左右滑动**（或键盘 `←` / `→`） | 切换市场（`加密货币 → A股 → 港股 → 日经 → 韩股 → 美股 → 布伦特原油`） |
+| **轻触屏幕** | 呼出底部玻璃态 **HUD 控制条**（4.5 秒无操作自动隐去；防误触设计，单击不再切走市场） |
+| **HUD 控制条功能** | 6 套 Float 配色切换 · 随机配色 · 夜间红光 · 省电静默 · 锁定市场（防误滑） · 返回看板 |
+| **键盘 `Esc`** | 退出全屏时钟，返回网页看板总览 |
+
+### 方式三：本地运行与二次开发
+
+无需安装 `npm` 包或任何构建工具，直接用任意静态 HTTP 服务器即可运行（浏览器 ES / Service Worker 需要 HTTP 环境，请勿直接双击 `file://` 打开）：
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/DHFS/trading-hours-dashboard.git
+cd trading-hours-dashboard
+
+# 2. 启动本地静态服务（Python / Node 均可）
+python3 -m http.server 8765
+# 或：npx serve -l 8765
+
+# 3. 浏览器打开
+open http://localhost:8765
+```
+
+运行内置的时段与日历单元测试（需 Node.js ≥ 18）：
+
+```bash
+node tests/market-time.test.js
+```
+
+### 方式四：一键部署到你自己的 GitHub Pages
+
+1. 点击仓库右上角 **Fork** 到你的 GitHub 账号。
+2. 进入你的仓库 **Settings → Pages**。
+3. 在 **Build and deployment** 中选择 `Deploy from a branch`，分支选择 `main`、目录选择 `/ (root)`，点击 **Save**。
+4. 等待约 30 秒，即可通过 `https://<你的用户名>.github.io/trading-hours-dashboard/` 访问专属看板。
+
+---
+
+## 支持市场、时段与数据源
+
+| 市场 | 交易所 | 交易时段（北京时间 UTC+8） | 行情主源 | 兜底 / 估算机制 |
+| :--- | :--- | :--- | :--- | :--- |
+| **加密货币** | Binance | 24/7 全年无休 | Binance 现货 WS (`BTCUSDT`) | Binance 现货 REST 镜像 |
+| **A 股** | 上交所 / 深交所 | 早盘 `09:30–11:30` · 午盘 `13:00–15:00` | 腾讯财经（上证/深证/创业板） | 东方财富批量接口 |
+| **港股** | HKEX | 早盘 `09:30–12:00` · 午盘 `13:00–16:00`（含半日市） | 腾讯财经（恒生指数） | 东方财富批量接口 |
+| **日经** | JPX | 早盘 `08:00–10:30` · 午盘 `11:30–14:30` | 东方财富 `stock/get`（日经225） | 腾讯日经 ETF（`sh513880`）涨幅估算 |
+| **韩股** | KRX | 连续 `08:00–14:30`（无午休） | 东方财富 `stock/get`（KOSPI） | 腾讯韩股 ETF（`hk03121`）涨幅估算 |
+| **美股** | NYSE / Nasdaq | 夏令时盘前 `16:00–21:30` · 盘中 `21:30–04:00` · 盘后 `04:00–08:00`<br>冬令时顺延 1 小时；支持 `13:00 ET` 提前收盘日 | 腾讯财经（标普500 / 纳指 / 道指） | 东方财富批量接口 |
+| **布伦特原油** | ICE Futures Europe | 夏令时 `08:00–次日06:00`（`06:00–08:00` 维护休市）<br>冬令时 `09:00–次日07:00`（`07:00–09:00` 维护休市） | Binance U 本位合约 WS (`BZUSDT`) | Binance Futures REST (`fapi/v1/ticker/24hr`) |
+
+> **说明**：
+> - `BZUSDT` 为币安 U 本位永续合约（标的：1 桶布伦特原油），仅作为稳定实时行情来源；开休市判定严格遵循 ICE 官方伦敦时段与假期。
+> - 东方财富对高频请求有 IP 风控，因此传统股指轮询间隔保持 5 分钟，加密货币与原油走 WebSocket 实时推送。
+
+---
+
+## 项目结构
 
 ```text
-index.html   页面结构、动态资源版本号、Service Worker 注册
-style.css    暗色主题、普通卡片与全屏 Float 时钟样式
-app.js       时段判定、倒计时、行情、WebSocket、渲染与差分动画
-data.js      节假日数据、市场配置、状态元信息
-sw.js        Service Worker：同源资源 network-first
-manifest.json PWA 清单（含版本化 start_url）
-icon-*.png   PWA 图标
-DESIGN.md    设计标准（Float v3）
-PROMPT.md    项目提示词
-README.md    本文件
+trading-hours-dashboard/
+├── index.html             # 页面入口：看板与时钟视图、动态缓存版本号注入、SW 注册
+├── manifest.json          # PWA 应用清单（standalone + 横屏锁定 + 版本化 start_url）
+├── sw.js                  # Service Worker（同源静态资源 network-first 策略）
+├── css/
+│   ├── tokens.css         # 设计令牌：暗色主题、7 状态色、绿涨红跌 / 红涨绿跌变量
+│   ├── dashboard.css      # 网页 Bento 多列看板样式（作用域严格隔离）
+│   └── float-clock.css    # 全屏 Float 时钟、双圆球冒号、HUD 控制条、夜间红光与省电模式
+├── js/
+│   ├── data.js            # 2026–2027 交易日历、7 市场配置、6 套 Float 调色盘（支持浏览器与 Node）
+│   ├── market-time.js     # 纯函数时段引擎：北京时间、动态 DST、单点采样时间轴（支持浏览器与 Node）
+│   ├── quotes.js          # 多源行情拉取 + Binance 双路 WS 实时流 + 本地缓存与时效追踪
+│   ├── float-engine.js    # Float 逐位渲染、按位差分滚动、fitFloatStage() 测宽、OLED 防烧屏微移
+│   ├── ui-dashboard.js    # 网页看板渲染、排序、局部增量更新与顶部交互
+│   ├── ui-clock.js        # 全 7 市场 Float 桌面时钟、滑动手势、HUD 控制层、WakeLock
+│   └── main.js            # 双形态路由调度与生命周期管理
+├── tests/
+│   └── market-time.test.js # 时段引擎与日历回归单元测试（Node.js 原生 assert）
+├── icon-180.png / icon-192.png / icon-512.png
+├── DESIGN.md              # iOS StandBy Float v3 / v3.1 完整视觉与工程设计标准
+├── PROMPT.md              # 早期单文件重构提示词归档
+└── README.md              # 项目说明文档
 ```
 
-## 使用方式
+---
 
-### 普通网页
+## 年度日历维护与自定义
 
-打开线上地址即可。页面默认展示多卡片看板，桌面浏览器中也可使用。
+所有节假日配置集中在 [`js/data.js`](js/data.js)：
 
-### iPhone 横屏桌面时钟
+- `DATA_YEARS`：声明当前日历覆盖年份（当前为 `[2026, 2027]`）。若系统日期超出覆盖范围，看板顶部与全屏时钟右上角都会展示「日历需更新」提醒。
+- `HOLIDAYS`：
+  - `aShare`：A 股休市闭区间（需同步维护 `A_SHARE_HOLIDAY_NAMES`；注：2027 年条目当前基于国务院放假安排推演，待上交所 2026 年 12 月下旬官方公告发布后复核）。
+  - `hk` / `hkHalf`：港股休市日与半日市。
+  - `jp` / `kr` / `us` / `usEarly` / `brent`：日经、韩股、美股（含提前收盘日）、ICE 布伦特原油休市日。
+- 每次发布静态资源重大更新时，同步递增 [`sw.js`](sw.js) 中的 `CACHE_NAME` 与 [`manifest.json`](manifest.json) 中的 `start_url` 版本号。
 
-1. 用 Safari 打开线上地址。
-2. 分享 → 添加到主屏幕。
-3. 从主屏图标打开，横屏使用。
-4. 点击屏幕或左右滑动切换市场；URL hash 会同步当前市场。
+---
 
-> 如果 `manifest.json` 的 `start_url` 版本号发生变化，需要删除主屏图标后重新添加，以绕开 iOS 主屏 PWA 的旧缓存条目。正常运行期间由 Service Worker 负责自动获取新版本。
+## 版本日志
 
-## 数据源
+### `v0.11.0` (2026-11-28)
+- **模块化重构**：拆分原有单文件脚本与样式为清晰的 `css/` 与 `js/` 目录，保留零构建与 GitHub Pages 直接发布能力。
+- **全 7 市场 Float 时钟统一**：A 股、港股、日经、韩股、布伦特原油正式升级为与 BTC/美股一致的纯黑 OLED "Float" 全屏桌面时钟；引入独立冷白渐变双圆球冒号、6 套调色盘选色器、夜间暗红护眼模式、省电静默模式、OLED 像素微移及左/右横屏安全区双向适配。
+- **网页 Bento 看板重塑**：采用桌面端 3 列自适应布局，彻底隔离 Float 样式污染；新增行情状态胶囊、涨跌色一键切换（默认绿涨红跌）以及与全屏时钟的双向无刷新跳转；解决轻触屏幕误切市场痛点。
+- **时段引擎与 Bug 修复**：
+  - 修复美股夏令时起止日期硬编码问题，改为按年份动态计算；
+  - 扩展内置日历至 **2026–2027 年**；
+  - 重构布伦特原油为 **ICE Futures Europe 官方时段**并动态随英国夏令时换算至北京时间；
+  - 采用单点状态逐分钟采样生成 24 小时时间轴，彻底修复美股提前收盘日及跨午夜时段指针与状态色块不一致问题（附 25 项 Node 单元测试）。
 
-| 数据 | 主源 | 兜底 |
-|------|------|------|
-| A股 / 港股 / 美股指数 | 腾讯 `qt.gtimg.cn` | 东方财富 |
-| 日经 / KOSPI | 东方财富 `stock/get` | 腾讯 ETF 按昨收基准估算 |
-| BTC | Binance 现货 WebSocket `data-stream.binance.vision` | Binance 现货 REST 镜像 |
-| 布伦特原油 | Binance U 本位合约 WebSocket `BZUSDT`（`/market` 路由） | Binance Futures REST `fapi/v1/ticker/24hr` |
-
-`BZUSDT` 是币安 U 本位永续合约，标的为布伦特原油（1 桶），不是现货交易对；其价格与涨跌幅直接用于布伦特卡片，不再使用东方财富 `112.B00Y`。USD-M 合约的 `@ticker` 流必须走 `/market` 路由，旧的无路由地址会连接成功但静默不推送。
-
-东方财富对高频请求和部分家庭宽带 IP 有风控，因此指数轮询间隔保持 5 分钟。行情失败时显示 `--`，不展示误导性旧值。
-
-涨跌色当前实现为：涨 `#22C55E`（绿），跌 `#EF4444`（红）；状态色与涨跌色是两套语义，详见 [DESIGN.md](DESIGN.md)。
-
-## 数据更新
-
-节假日数据集中在 `data.js` 顶部的 `HOLIDAYS` 对象中，按市场分类：
-
-- `aShare`：A股休市区间（`[起, 止]` 闭区间，含周末）
-- `hk` / `hkHalf`：港股休市日 / 半日市
-- `jp` / `kr`：日经与韩股休市日
-- `us` / `usEarly`：美股全休市日 / 提前收盘日
-
-当前 `DATA_YEAR = 2026`。每年末需根据各交易所官方公告更新下一年的数据并同步修改 `DATA_YEAR`。若当前日期超出覆盖范围，页面顶部会提示需更新数据。
-
-## 本地预览
-
-```bash
-cd trading-hours-dashboard
-python3 -m http.server 8080
-# 打开 http://localhost:8080
-```
-
-## 部署
-
-仓库 `DHFS/trading-hours-dashboard` 已开启 GitHub Pages。推送到 `main` 后由 Pages 自动构建发布。
-
-如遇本地代理失效导致推送失败，可直连推送：
-
-```bash
-git -c http.proxy= -c https.proxy= push
-```
-
-线上验证静态资源时建议绕过本地代理与浏览器缓存，避免误判部署未生效：
-
-```bash
-curl --noproxy '*' https://dhfs.github.io/trading-hours-dashboard/app.js
-```
+---
 
 ## 免责声明
 
-本页面行情与时段信息仅供参考，可能存在延迟或误差，不构成任何投资建议。
+本页面展示的所有交易时段、倒计时及市场行情数据仅供参考，可能存在网络延迟、接口波动或节假日临时调整带来的误差，**不构成任何投资建议**。
+
+欢迎提 Issue 反馈日历遗漏、数据源异常或机型适配问题！

@@ -1,0 +1,223 @@
+/* ============================================================
+   全屏桌面时钟：7 个市场统一的 iOS StandBy "Float" 纯黑画布
+   规格：纯黑 #000 + mix-blend-mode:screen 叠印 + 错落倾斜 + 7s 呼吸 + 按位差分滚动
+   字号不使用固定 vw/vh 公式，由 float-engine.js 的 fitFloatStage() 运行时测宽决定
+   ============================================================ */
+.mode-fullscreen,
+.mode-fullscreen body {
+  height: 100%; overflow: hidden; background: #000;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#clock-view { position: fixed; inset: 0; background: #000; z-index: 1; }
+#clock-stage-root { position: absolute; inset: 0; transition: opacity .18s ease; }
+#clock-stage-root.fade-out { opacity: 0; }
+
+.float-card { position: absolute; inset: 0; background: #000; overflow: hidden; }
+
+/* ---------- 四角布局（均融合左右安全区，灵动岛在左或右都不遮挡） ---------- */
+:root {
+  --sa-l: var(--safe-l, env(safe-area-inset-left, 0px));
+  --sa-r: var(--safe-r, env(safe-area-inset-right, 0px));
+}
+
+/* 主舞台：左右 padding 同时被 fitFloatStage 用作可用宽度边界；--burn-* 为防烧屏微移 */
+.clock-stage {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 4vh 0;
+  padding-left: calc(max(12px, var(--sa-l)) + 8px);
+  padding-right: calc(var(--sa-r) + 16px);
+  transform: translate(var(--burn-x, 0px), var(--burn-y, 0px));
+  transition: transform 1.2s ease;
+}
+
+.clock-top-right {
+  position: absolute; z-index: 3;
+  top: 4vh; right: max(5vw, calc(var(--sa-r) + 12px));
+  display: flex; flex-direction: column; align-items: flex-end; gap: 0.8vh;
+  transform: translate(var(--burn-x, 0px), var(--burn-y, 0px));
+  transition: transform 1.2s ease;
+}
+.clock-tag {
+  font-family: var(--font-round); font-size: clamp(16px, 3vh, 24px); font-weight: 600;
+  color: var(--faint); letter-spacing: 0.14em;
+}
+.clock-close {
+  font-family: var(--font-round); font-variant-numeric: tabular-nums lining-nums;
+  font-size: clamp(14px, 2.7vh, 21px); font-weight: 600; color: var(--muted); white-space: nowrap;
+}
+.clock-warn {
+  font-size: clamp(11px, 2vh, 14px); font-weight: 600; color: #F5B84D;
+  border: 1px solid rgba(245, 166, 35, 0.4); border-radius: 999px; padding: 2px 10px;
+}
+.clock-warn[hidden], .clock-battery[hidden] { display: none; }
+.clock-battery { position: relative; width: 22px; height: 22px; display: inline-flex; }
+.clock-battery svg { width: 100%; height: 100%; }
+.bat-track { fill: none; stroke: #2A2F38; stroke-width: 3; }
+.bat-ring { fill: none; stroke: #6FD99B; stroke-width: 3; stroke-linecap: round; }
+.bat-bolt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+.bat-bolt[hidden] { display: none; }
+
+.clock-bottom-left {
+  position: absolute; z-index: 3;
+  left: max(5vw, calc(var(--sa-l) + 12px));
+  bottom: calc(4vh + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.8vh;
+  transform: translate(var(--burn-x, 0px), var(--burn-y, 0px));
+  transition: transform 1.2s ease;
+}
+.clock-pct {
+  font-family: var(--font-round); font-size: clamp(28px, 6vh, 46px); font-weight: 800;
+  letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums;
+}
+.clock-meta-row { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0.6vh 1.6vw; }
+.clock-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: clamp(13px, 2.4vh, 18px); font-weight: 600;
+}
+.clock-status .dot { width: 6px; height: 6px; }
+/* 状态文字严格跟随当前状态着色（休市不再显示绿色） */
+.clock-status.st-open { color: #6FD99B; }
+.clock-status.st-pre { color: #F5B84D; }
+.clock-status.st-post { color: #B890F0; }
+.clock-status.st-lunch { color: #C2C7CE; }
+.clock-status.st-overnight { color: #7CB3F5; }
+.clock-status.st-weekend { color: #A8AEB8; }
+.clock-status.st-holiday { color: #F07B7B; }
+.clock-extra {
+  font-family: var(--font-round); font-size: clamp(12px, 2.2vh, 16px); font-weight: 600;
+  color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.clock-extra b { font-weight: 700; }
+
+/* ---------- 倒计时形态：标签 + 巨大 HH:MM:SS ---------- */
+.cd-wrap { display: flex; flex-direction: column; align-items: center; gap: 1.6vh; }
+.cd-label {
+  font-family: var(--font-round); font-size: clamp(18px, 3.6vh, 30px); font-weight: 600;
+  color: var(--muted); letter-spacing: 0.16em;
+}
+.float-primary { display: flex; align-items: center; justify-content: center; }
+
+/* ---------- Float 数字 ---------- */
+.float-num {
+  font-family: var(--font-round); font-weight: 900; letter-spacing: -0.08em; line-height: 0.88;
+  font-variant-numeric: tabular-nums lining-nums;
+  display: inline-flex; align-items: center; white-space: nowrap;
+  font-size: 22vh; /* 仅为首帧占位，随后由 fitFloatStage 覆盖 */
+}
+.float-num > .dig {
+  mix-blend-mode: screen; display: inline-block;
+  transform: rotate(var(--t, 0deg)) translateY(var(--y, 0em)); transform-origin: 50% 60%;
+  will-change: transform; opacity: 0.94; margin-right: -0.04em;
+}
+.float-num > .dig:last-child { margin-right: 0; }
+/* 呼吸：7s、±0.035em、±1.2deg，负延迟错峰 */
+.float-num .dig-f { display: inline-block; position: relative; animation: float-breathe 7s ease-in-out infinite; will-change: transform; }
+@keyframes float-breathe {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-0.035em) rotate(1.2deg); }
+}
+.float-num .dig-cell { display: inline-block; white-space: pre; }
+.float-num .dig-cell.dig-enter { position: absolute; left: 0; top: 0; }
+.float-num .float-ph { color: var(--faint); letter-spacing: 0; opacity: .6; }
+
+/* 独立双圆球冒号：冷白渐变正圆 + 微投影，不参与彩色叠印（mix-blend-mode: normal） */
+.float-colon {
+  display: inline-flex; flex-direction: column; justify-content: space-between; align-items: center;
+  align-self: center; height: 0.5em; margin: 0 0.09em; position: relative; z-index: 4;
+  mix-blend-mode: normal;
+}
+.fc-dot {
+  display: block; width: 0.13em; height: 0.13em; border-radius: 50%;
+  background: linear-gradient(180deg, #FFFFFF 0%, #D1D5DB 100%);
+  box-shadow: 0 0.03em 0.09em rgba(0, 0, 0, 0.5), inset 0 -0.02em 0.03em rgba(0, 0, 0, 0.18);
+  animation: fc-float 7s ease-in-out infinite;
+}
+.fc-dot + .fc-dot { animation-delay: -3.5s; }
+@keyframes fc-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.02em); } }
+/* 小数点（布伦特原油 72.45）：低存在感浅白圆点，静止 */
+.float-dot {
+  display: inline-block; width: 0.1em; height: 0.1em; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5); align-self: flex-end; margin: 0 0.06em 0.1em;
+}
+
+/* 按位差分滚动：涨 → 旧值上移淡出，新值从下方进入；跌反向。不用 overflow:hidden 以免破坏叠印 */
+.float-num .roll-out-up { animation: roll-out-up .4s cubic-bezier(.25, 1, .5, 1) both; }
+.float-num .roll-in-up { animation: roll-in-up .4s cubic-bezier(.25, 1, .5, 1) both; }
+.float-num .roll-out-down { animation: roll-out-down .4s cubic-bezier(.25, 1, .5, 1) both; }
+.float-num .roll-in-down { animation: roll-in-down .4s cubic-bezier(.25, 1, .5, 1) both; }
+@keyframes roll-out-up { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(-40%) scale(.94); opacity: 0; } }
+@keyframes roll-in-up { from { transform: translateY(40%) scale(.94); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes roll-out-down { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(40%) scale(.94); opacity: 0; } }
+@keyframes roll-in-down { from { transform: translateY(-40%) scale(.94); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
+/* ---------- 控制层：分页圆点 + HUD（默认隐藏） ---------- */
+.clock-chrome { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+.clock-dots {
+  position: absolute; left: 50%; bottom: calc(2vh + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%); display: flex; gap: 14px;
+  opacity: 0; pointer-events: none; transition: opacity .3s ease;
+}
+.clock-dots.show { opacity: 1; pointer-events: auto; }
+.dot-item { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.18); cursor: pointer; transition: background .2s ease, transform .2s ease; }
+.dot-item.active { background: var(--ink); transform: scale(1.3); }
+
+.clock-hud {
+  position: absolute; left: 50%; bottom: calc(5vh + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 12px);
+  max-width: calc(100vw - var(--sa-l) - var(--sa-r) - 24px);
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 16px;
+  padding: 10px 16px; border-radius: 22px;
+  background: rgba(30, 32, 38, 0.74);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease;
+}
+.clock-hud.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.hud-group { display: flex; align-items: center; gap: 8px; }
+.hud-swatch {
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.hud-swatch.active { border-color: #fff; transform: scale(1.12); }
+.hud-btn {
+  font-size: 13px; font-weight: 600; color: #D5D9DF; cursor: pointer;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid transparent; border-radius: 999px; padding: 6px 12px;
+  white-space: nowrap; transition: background .15s ease;
+}
+.hud-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.hud-btn.active { background: rgba(255, 255, 255, 0.92); color: #111; }
+.hud-btn[data-palette].active { background: rgba(255, 255, 255, 0.92); color: #111; }
+.hud-back { background: rgba(74, 144, 226, 0.32); }
+
+/* ---------- 夜间红光模式：低亮度单色暗红，保护暗光视力 ---------- */
+body.night-mode .float-num .dig:nth-child(odd) { color: #D92B2B !important; }
+body.night-mode .float-num .dig:nth-child(even) { color: #8A1111 !important; }
+body.night-mode .fc-dot { background: linear-gradient(180deg, #C42222, #7A1010); box-shadow: none; }
+body.night-mode .float-dot { background: rgba(217, 43, 43, 0.6); }
+body.night-mode .clock-tag,
+body.night-mode .clock-close,
+body.night-mode .clock-pct,
+body.night-mode .clock-status,
+body.night-mode .clock-extra,
+body.night-mode .clock-extra b,
+body.night-mode .clock-warn,
+body.night-mode .cd-label,
+body.night-mode .float-ph { color: #8A1111 !important; }
+body.night-mode .clock-warn { border-color: rgba(138, 17, 17, 0.6); }
+body.night-mode .clock-status .dot { background: #8A1111 !important; }
+body.night-mode .bat-ring { stroke: #8A1111; }
+body.night-mode .dot-item.active { background: #8A1111; }
+
+/* ---------- 省电静默模式：暂停持续动画，仅保留价格变动的滚动 ---------- */
+body.eco-mode .float-num .dig-f,
+body.eco-mode .fc-dot { animation: none !important; }
+body.eco-mode .clock-stage,
+body.eco-mode .clock-top-right,
+body.eco-mode .clock-bottom-left { transition: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .float-num .dig-f, .fc-dot { animation: none !important; }
+}

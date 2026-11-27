@@ -1,0 +1,84 @@
+/* ============================================================
+   设计令牌：暗色主题、状态色、涨跌色系、通用组件
+   涨跌色默认「绿涨红跌」；body[data-trend="red-up"] 切换为「红涨绿跌」
+   ============================================================ */
+:root {
+  --canvas: #0E1116;
+  --card: #151921;
+  --stat: #1C212A;
+  --ink: #F5F6F7;
+  --text: #C8CCD2;
+  --muted: #8A9099;
+  --faint: #6B7280;
+  --hairline: #262C36;
+  --track: #262C36;
+
+  /* 状态色（时段状态，非涨跌） */
+  --c-open: #3DCC70;
+  --c-lunch: #9b9fa7;
+  --c-pre: #F5A623;
+  --c-post: #9B6BF0;
+  --c-overnight: #4A90E2;
+  --c-weekend: #3A3F4A;
+  --c-holiday: #EF4444;
+
+  /* 涨跌色（默认绿涨红跌） */
+  --c-up: #22C55E;
+  --c-down: #EF4444;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-round: "SF Pro Rounded", "ui-rounded", "Nunito", "Rubik", -apple-system, BlinkMacSystemFont, sans-serif;
+  --r-lg: 14px;
+  --r-md: 10px;
+  --r-sm: 8px;
+}
+
+body[data-trend="red-up"] {
+  --c-up: #EF4444;
+  --c-down: #22C55E;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--canvas); }
+body {
+  font-family: var(--font-sans);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button { font-family: inherit; }
+
+.up { color: var(--c-up); }
+.down { color: var(--c-down); }
+.flat { color: var(--muted); }
+
+/* 状态圆点 */
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+.dot-open { background: var(--c-open); }
+.dot-lunch { background: var(--c-lunch); }
+.dot-pre { background: var(--c-pre); }
+.dot-post { background: var(--c-post); }
+.dot-overnight { background: var(--c-overnight); }
+.dot-weekend { background: var(--c-weekend); }
+.dot-holiday { background: var(--c-holiday); }
+
+/* 竖屏提示遮罩（仅全屏时钟模式，竖持时提示横屏） */
+.rotate-hint { display: none; }
+@media (orientation: portrait) {
+  .mode-fullscreen .rotate-hint {
+    display: flex;
+    position: fixed; inset: 0; z-index: 999;
+    background: #000;
+    color: var(--ink);
+    align-items: center; justify-content: center;
+    font-size: clamp(18px, 3vh, 24px);
+    text-align: center; padding: 0 8vw;
+  }
+}
+
+/* 全屏时钟与看板互斥 */
+#clock-view { display: none; }
+.mode-fullscreen #clock-view { display: block; }
+.mode-fullscreen #dashboard-view { display: none; }
