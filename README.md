@@ -4,7 +4,7 @@
 
 **以北京时间（UTC+8）为统一锚点的全球金融市场开休市看板 & iOS StandBy "Float" 风格桌面时钟（PWA）**
 
-[![Version](https://img.shields.io/badge/version-v0.11.0-blue.svg)](https://github.com/DHFS/trading-hours-dashboard/releases/tag/v0.11.0)
+[![Version](https://img.shields.io/badge/version-v0.11.1-blue.svg)](https://github.com/DHFS/trading-hours-dashboard/releases/tag/v0.11.1)
 [![Stack](https://img.shields.io/badge/stack-HTML%20%2B%20CSS%20%2B%20Vanilla%20JS-informational.svg)](#项目结构)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](#快速上手)
 [![PWA](https://img.shields.io/badge/PWA-iPhone%20StandBy%20Ready-black.svg)](#方式二安装为-iphone-横屏桌面时钟pwa)
@@ -37,13 +37,13 @@
 - **跨年动态夏令时 & 2026–2027 日历**：
   - 美股夏令时（3 月第 2 个周日 – 11 月第 1 个周日）与英国夏令时（3 月最后周日 – 10 月最后周日）按年份动态推算，告别跨年硬编码；
   - 内置 2026–2027 年上交所、港交所（含半日市）、JPX、KRX、NYSE（含提前收盘日）及 ICE Futures Europe 休市日历，超范围自动提示。
-- **ICE 布伦特原油官方时段**：行情接入 Binance U 本位永续合约 `BZUSDT` 实时流，开休市判定严格遵循 ICE Futures Europe（伦敦周一至周五 01:00–23:00 交易，每日 23:00–01:00 维护休市，自动随英国夏/冬令时换算至北京时间）。
+- **ICE 布伦特原油官方时段**：开休市判定严格遵循 ICE Futures Europe（伦敦周一至周五 01:00–23:00 交易，每日 23:00–01:00 维护休市，自动随英国夏/冬令时换算至北京时间）；行情使用**中国大陆免 VPN 直连**的腾讯外盘期货 `hf_OIL` 主源与东方财富期货双兜底。
 - **全 7 市场 iOS StandBy "Float" 桌面时钟**：
   - 6 套精选配色（经典蔚蓝 + 5 套双拼波普预设）+ 随机配色，支持即时切换与持久化；
   - 独立冷白渐变双圆球冒号（静止不参与彩色混合）+ 低位向高位 40ms 交错差分滚动动画；
   - 运行时真实字体测宽拟合（`fitFloatStage()`）+ 左/右横屏灵动岛安全区双向适配，绝不截断溢出；
   - 内置 **夜间暗红护眼模式**、**省电静默模式**（暂停呼吸动画降低插电发热）、**每 3 分钟 ±4px OLED 防烧屏像素微移**。
-- **涨跌色系与多源行情兜底**：默认统一 **绿涨红跌**，看板顶部可一键切换为「红涨绿跌」；指数多源（腾讯财经 / 东方财富 / ETF 估算）与 Binance 双路 WebSocket（`BTCUSDT` / `BZUSDT`）自动降级，支持 `localStorage` 缓存与状态指示。
+- **涨跌色系与多源行情兜底**：默认统一 **绿涨红跌**，看板顶部可一键切换为「红涨绿跌」；指数与原油支持大陆直连（腾讯 30 秒快轮询 / 东方财富 / ETF 估算），BTC 走 Binance 现货镜像 WebSocket，支持 `localStorage` 缓存与状态指示。
 - **零构建零依赖**：纯原生 HTML / CSS / JS，无打包步骤、无后端服务器要求，开箱即可托管于任何静态服务器或 GitHub Pages。
 
 ---
@@ -65,7 +65,7 @@
 3. 从桌面「交易时钟」图标启动（默认全屏横屏进入 `#crypto`），将手机横置在 MagSafe 支架上即可作为桌面时钟长亮使用。
 
 > [!TIP]
-> **升级提示**：从早期版本升级至 `v0.11.0` 时，由于 `manifest.json` 的 `start_url` 已更新版本号（`?v=0.11.0`），请先长按删除旧的主屏幕「交易时钟」图标，再用 Safari 重新「添加到主屏幕」，即可绕过 iOS PWA 旧启动条目缓存。
+> **升级提示**：从早期版本升级至 `v0.11.1` 时，由于 `manifest.json` 的 `start_url` 已更新版本号（`?v=0.11.1`），请先长按删除旧的主屏幕「交易时钟」图标，再用 Safari 重新「添加到主屏幕」，即可绕过 iOS PWA 旧启动条目缓存。
 
 #### 桌面时钟手势与快捷键速查
 
@@ -118,11 +118,11 @@ node tests/market-time.test.js
 | **日经** | JPX | 早盘 `08:00–10:30` · 午盘 `11:30–14:30` | 东方财富 `stock/get`（日经225） | 腾讯日经 ETF（`sh513880`）涨幅估算 |
 | **韩股** | KRX | 连续 `08:00–14:30`（无午休） | 东方财富 `stock/get`（KOSPI） | 腾讯韩股 ETF（`hk03121`）涨幅估算 |
 | **美股** | NYSE / Nasdaq | 夏令时盘前 `16:00–21:30` · 盘中 `21:30–04:00` · 盘后 `04:00–08:00`<br>冬令时顺延 1 小时；支持 `13:00 ET` 提前收盘日 | 腾讯财经（标普500 / 纳指 / 道指） | 东方财富批量接口 |
-| **布伦特原油** | ICE Futures Europe | 夏令时 `08:00–次日06:00`（`06:00–08:00` 维护休市）<br>冬令时 `09:00–次日07:00`（`07:00–09:00` 维护休市） | Binance U 本位合约 WS (`BZUSDT`) | Binance Futures REST (`fapi/v1/ticker/24hr`) |
+| **布伦特原油** | ICE Futures Europe | 夏令时 `08:00–次日06:00`（`06:00–08:00` 维护休市）<br>冬令时 `09:00–次日07:00`（`07:00–09:00` 维护休市） | 腾讯外盘期货 (`hf_OIL`，30 秒刷新) | 东方财富 `futsseapi` → 东财 `push2delay` |
 
 > **说明**：
-> - `BZUSDT` 为币安 U 本位永续合约（标的：1 桶布伦特原油），仅作为稳定实时行情来源；开休市判定严格遵循 ICE 官方伦敦时段与假期。
-> - 东方财富对高频请求有 IP 风控，因此传统股指轮询间隔保持 5 分钟，加密货币与原油走 WebSocket 实时推送。
+> - 全部传统股指与布伦特原油期货数据源在中国大陆均**无需 VPN 可直接访问**；腾讯源无严苛 IP 封控，支持 30 秒独立快轮询，东方财富全量兜底轮询保持 5 分钟以规避风控。
+> - BTC 现货采用 Binance 官方公共数据镜像（`data-stream.binance.vision` / `data-api.binance.vision`）。
 
 ---
 
@@ -169,6 +169,10 @@ trading-hours-dashboard/
 ---
 
 ## 版本日志
+
+### `v0.11.1` (2026-11-28)
+- **布伦特原油数据源大陆直连化**：移除在中国大陆不开 VPN 会被阻断的 `fstream.binance.com` / `fapi.binance.com`（`BZUSDT`），改用真实 ICE 布伦特原油期货三源自动降级：**腾讯外盘期货 `hf_OIL`（主源）→ 东方财富独立期货接口 `futsseapi`（备源 1）→ 东方财富 `push2delay`（备源 2）**。
+- **腾讯源 30 秒快轮询**：将腾讯接口（A 股 / 港股 / 美股股指 + 布伦特原油）拆分为 30 秒独立快轮询，东财全量兜底维持 5 分钟防风控，兼顾实时性与稳定性，消除无 VPN 环境下的后台网络报错。
 
 ### `v0.11.0` (2026-11-28)
 - **模块化重构**：拆分原有单文件脚本与样式为清晰的 `css/` 与 `js/` 目录，保留零构建与 GitHub Pages 直接发布能力。

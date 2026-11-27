@@ -210,7 +210,7 @@
 
   function renderSrc() {
     document.getElementById('src').innerHTML =
-      '行情数据来源：腾讯财经 / 东方财富（股指）、Binance 现货（BTC）与 U 本位合约 BZUSDT（布伦特原油），可能存在延迟，仅供参考。<br>' +
+      '行情数据来源：腾讯财经（股指与 ICE 布伦特原油，30秒刷新）/ 东方财富（日经、韩股及兜底）、Binance 现货镜像（BTC 实时流），可能存在延迟，仅供参考。<br>' +
       '交易时段与节假日来源：上交所 / 港交所 / JPX / KRX / NYSE / ICE Futures Europe 官方日历，覆盖 ' +
       DATA_YEARS[0] + '–' + DATA_YEARS[DATA_YEARS.length - 1] + ' 年（A股 2027 年待上交所年底公告复核）。' +
       '本页面不构成任何投资建议。';

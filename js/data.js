@@ -153,8 +153,8 @@
       quotes: [{ label: 'BTC', code: 'BTC', binance: 'BTCUSDT' }]
     },
     {
-      id: 'brent', name: '布伦特原油', sub: 'ICE · Binance 行情', clockTag: 'ICE · BRENT', primaryCode: 'BZUSDT', floatDecimals: 2,
-      quotes: [{ label: '布伦特原油', code: 'BZUSDT', binanceFutures: 'BZUSDT' }]
+      id: 'brent', name: '布伦特原油', sub: 'ICE', clockTag: 'ICE · BRENT', primaryCode: 'B00Y', floatDecimals: 2,
+      quotes: [{ label: '布伦特原油', secid: '112.B00Y', tencentHf: 'hf_OIL', emFut: '112_B00Y_qt' }]
     }
   ];
 

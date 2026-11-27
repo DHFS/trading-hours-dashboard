@@ -1,18 +1,19 @@
 // ============================================================
-// 行情引擎：多源拉取（腾讯/东财/ETF 估算）+ Binance 现货/合约双路 WebSocket + 本地缓存
+// 行情引擎：多源拉取（腾讯 30s 快轮询 / 东财期货与股指兜底 / ETF 估算）+ Binance 现货 WebSocket + 本地缓存
 // 依赖：THD.MARKETS（data.js）
 // ============================================================
 (function (root) {
   const THD = root.THD;
   const MARKETS = THD.MARKETS;
 
-  // quotes: 指数/原油最新价与涨跌幅（key=内部代码）；closes: 昨收；crypto: BTC
+  // quotes: 指数/原油最新价与涨跌幅（key=内部代码）；closes: 昨收/昨结；crypto: BTC
   const state = { quotes: {}, closes: {}, crypto: {} };
   // 数据时效信息，供看板顶部「数据状态」展示：区分实时流、轮询、本地缓存
   const meta = { lastFetchAt: 0, lastPushAt: 0, hasCache: false, gotLive: false };
   const listeners = [];
-  const CACHE_KEY = 'thd_quotes_cache_v2';
-  const REST_POLL_MS = 300000; // NOTE: 东财对高频请求有 IP 级风控，指数轮询保持 5 分钟
+  const CACHE_KEY = 'thd_quotes_cache_v3';
+  const TENCENT_POLL_MS = 30000; // 腾讯源（股指 + ICE 布伦特原油）无严苛 IP 封控，支持 30 秒快轮询
+  const REST_POLL_MS = 300000;   // NOTE: 东财对高频请求有 IP 级风控，全量兜底轮询保持 5 分钟
 
   function onUpdate(fn) { listeners.push(fn); }
   function emit() {
@@ -59,27 +60,33 @@
 
   // 构建数据源代码 -> 内部代码映射
   function buildSourceMaps() {
-    const tencentMap = {}, etfMap = {}, emSecid = {}, emPrec = {};
+    const tencentMap = {}, tencentHfMap = {}, etfMap = {}, emFutMap = {}, emSecid = {}, emPrec = {};
     for (const m of MARKETS) {
       for (const q of m.quotes) {
         const code = quoteCode(q);
         if (q.tencent) tencentMap[q.tencent] = code;
+        if (q.tencentHf) tencentHfMap[q.tencentHf] = code;
         if (q.etf) etfMap[q.etf] = { code: code, base: q.base };
+        if (q.emFut) emFutMap[code] = q.emFut;
         if (q.secid) emPrec[code] = q.prec || 2;
-        if (q.secid === '100.N225' || q.secid === '100.KS11') emSecid[q.secid] = code;
+        if (q.secid === '100.N225' || q.secid === '100.KS11' || q.secid === '112.B00Y') emSecid[q.secid] = code;
       }
     }
-    return { tencentMap, etfMap, emSecid, emPrec };
+    return { tencentMap, tencentHfMap, etfMap, emFutMap, emSecid, emPrec };
   }
 
-  async function fetchQuotes() {
-    const { tencentMap, etfMap, emSecid, emPrec } = buildSourceMaps();
-    const etfPct = {}; // 腾讯 ETF 当日涨跌幅(%)，用于日经/KOSPI 兜底估算
+  /**
+   * 腾讯接口批量拉取（A股/港股/美股股指 + 外盘原油 hf_OIL + 日经/韩股 ETF）
+   * @returns {Promise<{gotAny: boolean, etfPct: Object}>}
+   */
+  async function fetchTencent(maps) {
+    const { tencentMap, tencentHfMap, etfMap } = maps;
+    const etfPct = {};
     let gotAny = false;
     const q = state.quotes, c = state.closes;
+    const tcodes = Object.keys(tencentMap).concat(Object.keys(tencentHfMap), Object.keys(etfMap));
+    if (!tcodes.length) return { gotAny, etfPct };
 
-    // 1) A股/港股/美股 + 日经/KOSPI 的 ETF：腾讯 qt.gtimg.cn（GBK，字段以 ~ 分隔：[3]=最新价 [4]=昨收）
-    const tcodes = Object.keys(tencentMap).concat(Object.keys(etfMap));
     try {
       const r = await fetchWithTimeout('https://qt.gtimg.cn/q=' + tcodes.join(','));
       const buf = await r.arrayBuffer();
@@ -88,22 +95,77 @@
       const re = /v_(\w+)="([^"]*)"/g;
       let mt;
       while ((mt = re.exec(text)) !== null) {
-        const code = tencentMap[mt[1]];
-        const etf = etfMap[mt[1]];
-        const p = mt[2].split('~');
-        const price = parseFloat(p[3]), prev = parseFloat(p[4]);
-        if (code) {
-          if (isValid(price)) { q[code] = { price: price }; gotAny = true; }
-          if (isValid(prev)) c[code] = prev;
-        } else if (etf && isValid(price) && isValid(prev)) {
-          etfPct[etf.code] = (price - prev) / prev * 100;
+        const key = mt[1];
+        const code = tencentMap[key];
+        const hfCode = tencentHfMap[key];
+        const etf = etfMap[key];
+
+        if (hfCode) {
+          // 腾讯外盘期货（如 hf_OIL）：逗号分隔，[0]=最新价 [1]=涨跌幅(%) [7]=昨结算价
+          const p = mt[2].split(',');
+          const price = parseFloat(p[0]), pct = parseFloat(p[1]), prev = parseFloat(p[7]);
+          if (isValid(price)) {
+            q[hfCode] = { price: price, pct: isFinite(pct) ? pct : null };
+            gotAny = true;
+          }
+          if (isValid(prev)) c[hfCode] = prev;
+        } else {
+          // 股票/指数/ETF：~ 分隔，[3]=最新价 [4]=昨收
+          const p = mt[2].split('~');
+          const price = parseFloat(p[3]), prev = parseFloat(p[4]);
+          if (code) {
+            if (isValid(price)) { q[code] = { price: price }; gotAny = true; }
+            if (isValid(prev)) c[code] = prev;
+          } else if (etf && isValid(price) && isValid(prev)) {
+            etfPct[etf.code] = (price - prev) / prev * 100;
+          }
         }
       }
     } catch (e) {
-      console.warn('指数行情获取失败（腾讯）', e);
+      console.warn('行情获取失败（腾讯）', e);
+    }
+    return { gotAny, etfPct };
+  }
+
+  // 腾讯独立 30 秒快轮询：不触发东财接口，兼顾实时性与防风控
+  async function pollTencentFast() {
+    const res = await fetchTencent(buildSourceMaps());
+    if (res.gotAny) {
+      meta.lastFetchAt = Date.now();
+      meta.gotLive = true;
+      saveCache();
+      emit();
+    }
+  }
+
+  async function fetchQuotes() {
+    const maps = buildSourceMaps();
+    const { emFutMap, emSecid, emPrec } = maps;
+    const q = state.quotes, c = state.closes;
+
+    // 1) 主源：腾讯（A股/港股/美股 + ICE 布伦特原油 hf_OIL + 日经/KOSPI 的 ETF）
+    const tRes = await fetchTencent(maps);
+    let gotAny = tRes.gotAny;
+    const etfPct = tRes.etfPct;
+
+    // 2) 东财期货独立静态接口：布伦特原油备源 1（不占用 push2 限流池）
+    for (const code of Object.keys(emFutMap)) {
+      if (q[code] && isValid(q[code].price)) continue;
+      try {
+        const r = await fetchWithTimeout('https://futsseapi.eastmoney.com/static/' + emFutMap[code]);
+        const j = await r.json();
+        const qt = j && j.qt;
+        if (qt && isValid(+qt.p)) {
+          q[code] = { price: +qt.p, pct: isFinite(+qt.zdf) ? +qt.zdf : null };
+          if (isValid(+qt.zjsj)) c[code] = +qt.zjsj;
+          gotAny = true;
+        }
+      } catch (e) {
+        console.warn('期货行情获取失败（东财静态兜底）', e);
+      }
     }
 
-    // 2) 东方财富批量接口：仅补充上面未取到的代码（f2=最新价 f3=涨跌幅 f18=昨收 f12=代码，均需 ÷10^prec）
+    // 3) 东方财富批量接口：补充上述未取到的代码（f2=最新价 f3=涨跌幅 f18=昨收 f12=代码，均需 ÷10^prec）
     try {
       const secids = [];
       for (const m of MARKETS) for (const qq of m.quotes) if (qq.secid) secids.push(qq.secid);
@@ -112,10 +174,11 @@
       if (j && j.data && j.data.diff) {
         for (const it of j.data.diff) {
           if (q[it.f12] && isValid(q[it.f12].price)) continue; // 已有数据不覆盖
-          if (!isValid(it.f2 / 100)) continue;
           const prec = emPrec[it.f12] || 2;
-          q[it.f12] = { price: it.f2 / Math.pow(10, prec), pct: it.f3 / 100 };
-          if (isValid(it.f18)) c[it.f12] = it.f18 / Math.pow(10, prec);
+          const scale = Math.pow(10, prec);
+          if (!isValid(it.f2 / scale)) continue;
+          q[it.f12] = { price: it.f2 / scale, pct: it.f3 / 100 };
+          if (isValid(it.f18 / scale)) c[it.f12] = it.f18 / scale;
           gotAny = true;
         }
       }
@@ -123,7 +186,7 @@
       console.warn('指数行情获取失败（东方财富兜底）', e);
     }
 
-    // 3) 日经/KOSPI 精准源：东财 stock/get，多域名轮换提高成功率
+    // 4) 日经/KOSPI/原油 第三级精准源：东财 stock/get，多域名轮换提高成功率
     const emHosts = ['https://push2delay.eastmoney.com', 'https://push2his.eastmoney.com', 'https://push2.eastmoney.com'];
     for (const secid of Object.keys(emSecid)) {
       const code = emSecid[secid];
@@ -144,7 +207,7 @@
       }
     }
 
-    // 4) 日经/KOSPI 兜底估算：东财失败时，用 ETF 当日涨跌幅 × 昨收基准估算点位
+    // 5) 日经/KOSPI 兜底估算：东财失败时，用 ETF 当日涨跌幅 × 昨收基准估算点位
     for (const m of MARKETS) {
       for (const qq of m.quotes) {
         if (!qq.etf) continue;
@@ -159,7 +222,7 @@
       }
     }
 
-    // 5) Binance REST 兜底：WebSocket 已连接时跳过，避免轮询旧值覆盖实时价造成回跳
+    // 6) Binance 现货 REST 兜底：WebSocket 已连接时跳过，避免轮询旧值覆盖实时价造成回跳
     if (!btcStream.isLive()) {
       try {
         const r = await fetchWithTimeout('https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22%5D');
@@ -174,20 +237,6 @@
         console.warn('加密行情获取失败（Binance REST）', e);
       }
     }
-    // BZUSDT 是 U 本位永续合约（标的：布伦特原油），必须走 fapi 而非现货 data-api
-    if (!bzStream.isLive()) {
-      try {
-        const r = await fetchWithTimeout('https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BZUSDT');
-        const it = await r.json();
-        const price = +(it && it.lastPrice), pct = +(it && it.priceChangePercent);
-        if (isValid(price)) {
-          q.BZUSDT = { price: price, pct: isFinite(pct) ? pct : null };
-          gotAny = true;
-        }
-      } catch (e) {
-        console.warn('布伦特原油行情获取失败（Binance Futures REST）', e);
-      }
-    }
 
     if (gotAny) {
       meta.lastFetchAt = Date.now();
@@ -197,11 +246,8 @@
     emit();
   }
 
-  // ---------- Binance 实时推送 ----------
+  // ---------- Binance 现货实时推送（公共镜像域名，大陆可直连） ----------
   // BTC: wss://data-stream.binance.vision:443/ws/btcusdt@ticker
-  // BZUSDT: wss://fstream.binance.com/market/ws/bzusdt@ticker
-  // NOTE: USD-M WebSocket 已按 /public、/market、/private 分流，@ticker 属 /market；
-  //       无路由地址会连接成功但静默不推送，必须带 /market。
   function createPriceStream(cfg) {
     const s = { ws: null, retry: 0, timer: null, stopped: false, lastPushAt: 0 };
 
@@ -252,10 +298,6 @@
     url: 'wss://data-stream.binance.vision:443/ws/btcusdt@ticker',
     apply: v => { state.crypto.BTC = v; }
   });
-  const bzStream = createPriceStream({
-    url: 'wss://fstream.binance.com/market/ws/bzusdt@ticker',
-    apply: v => { state.quotes.BZUSDT = v; }
-  });
 
   /** 取行情值：返回 {price, pct}；无有效最新价时回退昨收（pct 置空） */
   function getValue(marketId, code) {
@@ -278,7 +320,7 @@
 
   function liveInfo() {
     return {
-      live: btcStream.isLive() || bzStream.isLive(),
+      live: btcStream.isLive(),
       at: Math.max(meta.lastFetchAt, meta.lastPushAt),
       gotLive: meta.gotLive,
       hasCache: meta.hasCache
@@ -290,14 +332,14 @@
     emit();
     fetchQuotes();
     btcStream.connect();
-    bzStream.connect();
+    setInterval(pollTencentFast, TENCENT_POLL_MS);
     setInterval(fetchQuotes, REST_POLL_MS);
     // iOS 切后台会挂起 WebSocket，回前台主动补连并立即补拉 REST
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) {
-        btcStream.stop(); bzStream.stop();
+        btcStream.stop();
       } else {
-        btcStream.resume(); bzStream.resume();
+        btcStream.resume();
         fetchQuotes();
       }
     });

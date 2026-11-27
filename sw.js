@@ -3,7 +3,7 @@
  * 网络失败时回退缓存，保证弱网/离线仍可用。
  * 目的：破解 iOS 主屏 PWA 把旧 index.html/CSS/JS 锁死在缓存里、改版不生效的问题。
  */
-const CACHE_NAME = 'thd-v0.11.0';
+const CACHE_NAME = 'thd-v0.11.1';
 const CORE = [
   './', './index.html', './manifest.json',
   './css/tokens.css', './css/dashboard.css', './css/float-clock.css',
