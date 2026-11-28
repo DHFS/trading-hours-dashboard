@@ -1,21 +1,22 @@
 /* ============================================================
-   设计令牌：暗色主题、状态色、涨跌色系、通用组件
+   设计令牌：温润曜石黑、状态色、涨跌色系、浏览器表面打磨
    涨跌色默认「绿涨红跌」；body[data-trend="red-up"] 切换为「红涨绿跌」
    ============================================================ */
 :root {
-  --canvas: #0E1116;
-  --card: #151921;
-  --stat: #1C212A;
-  --ink: #F5F6F7;
-  --text: #C8CCD2;
-  --muted: #8A9099;
-  --faint: #6B7280;
-  --hairline: #262C36;
-  --track: #262C36;
+  color-scheme: dark;
+  --canvas: #090A0C;
+  --surface-active: rgba(255, 255, 255, 0.022);
+  --surface-hover: rgba(255, 255, 255, 0.04);
+  --ink: #F4F5F7;
+  --text: #D1D5DB;
+  --muted: #8E95A2;
+  --faint: #676E7B;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --track: rgba(255, 255, 255, 0.07);
 
-  /* 状态色（时段状态，非涨跌） */
-  --c-open: #3DCC70;
-  --c-lunch: #9b9fa7;
+  /* 状态色（时段状态，与涨跌绿区分开） */
+  --c-open: #14B8A6;
+  --c-lunch: #9B9FA7;
   --c-pre: #F5A623;
   --c-post: #9B6BF0;
   --c-overnight: #4A90E2;
@@ -26,11 +27,9 @@
   --c-up: #22C55E;
   --c-down: #EF4444;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-round: "SF Pro Rounded", "ui-rounded", "Nunito", "Rubik", -apple-system, BlinkMacSystemFont, sans-serif;
-  --r-lg: 14px;
-  --r-md: 10px;
-  --r-sm: 8px;
+  --font-sans: "Space Grotesk", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, Monaco, ui-monospace, monospace;
+  --font-round: "SF Pro Rounded", "ui-rounded", "Nunito", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 body[data-trend="red-up"] {
@@ -50,12 +49,19 @@ body {
 }
 button { font-family: inherit; }
 
+/* 浏览器表面打磨 */
+::selection { background: rgba(245, 166, 35, 0.28); color: #fff; }
+:focus-visible { outline: 2px solid #F5A623; outline-offset: 2px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 999px; }
+
 .up { color: var(--c-up); }
 .down { color: var(--c-down); }
 .flat { color: var(--muted); }
 
 /* 状态圆点 */
-.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
 .dot-open { background: var(--c-open); }
 .dot-lunch { background: var(--c-lunch); }
 .dot-pre { background: var(--c-pre); }
@@ -64,19 +70,31 @@ button { font-family: inherit; }
 .dot-weekend { background: var(--c-weekend); }
 .dot-holiday { background: var(--c-holiday); }
 
-/* 竖屏提示遮罩（仅全屏时钟模式，竖持时提示横屏） */
-.rotate-hint { display: none; }
+/* 移动端竖屏进入全屏时钟时的非阻断双选引导层 */
+.portrait-choice { display: none; }
 @media (orientation: portrait) {
-  .mode-fullscreen .rotate-hint {
+  body.mode-fullscreen:not(.allow-portrait-clock) .portrait-choice {
     display: flex;
     position: fixed; inset: 0; z-index: 999;
     background: #000;
     color: var(--ink);
     align-items: center; justify-content: center;
-    font-size: clamp(18px, 3vh, 24px);
-    text-align: center; padding: 0 8vw;
+    padding: 24px;
   }
 }
+.pc-inner { max-width: 340px; width: 100%; text-align: center; }
+.pc-title { font-size: 20px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+.pc-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-top: 10px; }
+.pc-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.pc-btn {
+  width: 100%; min-height: 44px; padding: 10px 18px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.06); color: var(--ink);
+  transition: background .15s ease, border-color .15s ease;
+}
+.pc-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.pc-btn-primary { background: var(--ink); color: #090A0C; border-color: transparent; }
+.pc-btn-primary:hover { background: #E2E5E9; }
 
 /* 全屏时钟与看板互斥 */
 #clock-view { display: none; }

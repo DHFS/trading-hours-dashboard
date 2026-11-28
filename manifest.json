@@ -1,11 +1,11 @@
 {
   "name": "交易时段看板",
   "short_name": "交易时钟",
-  "description": "以北京时间为基准的全球交易时段看板：A股、港股、日经、韩股、美股、加密货币、布伦特原油实时开休市状态与行情。",
-  "start_url": "./index.html?v=0.11.1#crypto",
+  "description": "以北京时间为基准的全球交易时段看板：A股、港股、日股、韩股、欧股、美股、黄金、原油与加密货币实时开休市状态、4 大宏观风向标与桌面时钟。",
+  "start_url": "./index.html?v=0.12.0#crypto",
   "scope": "./",
   "display": "standalone",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [

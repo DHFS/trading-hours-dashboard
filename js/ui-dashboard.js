@@ -1,113 +1,138 @@
 // ============================================================
-// 网页 Dashboard：多市场 Bento 看板（克制、专业、一屏尽览）
-// 样式严格限定在 #dashboard-view 内，不使用任何 Float 数字样式
+// 网页 Dashboard：方案 A · 瑞士世界时极简联动矩阵 + 顶部宏观风向标条
+// - 零卡片套娃、零无意义图标、3 栏精密纵向对齐指数
+// - 桌面端贯穿全部 9 行的垂直激光游标线 + 移动端独立游标
 // ============================================================
 (function (root) {
   const THD = root.THD;
   const Q = THD.Quotes;
-  const { MARKETS, STATUS_META, DATA_YEARS, WEEK_CN, pad, prefs } = THD;
+  const { MARKETS, MACRO_ITEMS, STATUS_META, DATA_YEARS, WEEK_CN, pad, prefs } = THD;
 
   const grid = document.getElementById('grid');
+  const macroStrip = document.getElementById('macro-strip');
   let lastOrder = [];
 
-  // 各市场图标：国旗 emoji（加密货币用比特币符号，橙色）；均为静态可信内容
-  const ICONS = {
-    aShare: '🇨🇳', hk: '🇭🇰', jp: '🇯🇵', kr: '🇰🇷', us: '🇺🇸',
-    crypto: '<span class="btc">₿</span>', brent: '🛢️'
-  };
+  // ---------- 顶部宏观风向标条 ----------
+  function renderMacroStrip() {
+    if (!macroStrip || !MACRO_ITEMS) return;
+    macroStrip.innerHTML = MACRO_ITEMS.map(function (it) {
+      return '<div class="macro-item" data-code="' + it.code + '" data-decimals="' + (it.decimals != null ? it.decimals : 2) + '" data-suffix="' + (it.suffix || '') + '">' +
+        '<span class="macro-label">' + it.label + '</span>' +
+        '<span class="macro-val">--</span>' +
+        '<span class="macro-pct flat">--</span>' +
+      '</div>';
+    }).join('');
+  }
 
-  // ---------- 时间轴 ----------
-  function renderTimeline(segs, nowMinute, showNow) {
+  // ---------- 轨道与游标 ----------
+  function renderTrack(segs, nowMinute, showNow) {
     let bar = '';
     for (const s of segs) {
       bar += '<div class="' + s.cls + '" style="flex:0 0 ' + ((s.end - s.start) / 1440 * 100) + '%"></div>';
     }
-    // 关键时间刻度：各分段边界（去掉 0:00 与 24:00 两端点）
-    const marks = new Set();
-    for (const s of segs) {
-      if (s.start > 0 && s.start < 1440) marks.add(s.start);
-      if (s.end > 0 && s.end < 1440) marks.add(s.end);
-    }
-    let marksHtml = '';
-    for (const mm of [...marks].sort((a, b) => a - b)) {
-      marksHtml += '<span class="mark" style="left:' + (mm / 1440 * 100).toFixed(3) + '%">' +
-        '<i class="tick"></i><span class="lbl">' + THD.fmtClock(mm) + '</span></span>';
-    }
+    const pct = (nowMinute / 1440 * 100).toFixed(3) + '%';
+    const veilEl = showNow === false ? '' :
+      '<div class="row-past-veil" style="width:' + pct + '"></div>';
     const nowEl = showNow === false ? '' :
-      '<div class="timeline-now" style="left:' + (nowMinute / 1440 * 100).toFixed(2) + '%"></div>';
-    return '<div class="timeline-bar">' + bar + '</div>' + nowEl + '<div class="timeline-marks">' + marksHtml + '</div>';
+      '<div class="row-now" style="left:' + pct + '"></div>';
+    return '<div class="timeline-bar">' + bar + '</div>' + veilEl + nowEl;
   }
 
   function tlKey(segs) { return segs.map(s => s.start + '-' + s.end + '-' + s.cls).join('|'); }
 
-  // ---------- 卡片 ----------
-  function renderStats(m) {
-    let html = '';
+  function updateLaser(now) {
+    const pct = ((now.minute + now.s / 60) / 1440 * 100).toFixed(3) + '%';
+    const laser = document.getElementById('global-laser');
+    const veil = document.getElementById('global-past-veil');
+    const tag = document.getElementById('global-laser-tag');
+    if (laser) laser.style.left = pct;
+    if (veil) veil.style.width = pct;
+    if (tag) tag.textContent = pad(now.h) + ':' + pad(now.min);
+    grid.querySelectorAll('.row-now').forEach(function (el) { el.style.left = pct; });
+    grid.querySelectorAll('.row-past-veil').forEach(function (el) { el.style.width = pct; });
+  }
+
+  // ---------- 指数列（主指数排第一行，副指数整齐纵向排布） ----------
+  function orderedQuotes(m) {
+    const main = [], rest = [];
     for (const q of m.quotes) {
-      html += '<div class="stat" data-market="' + m.id + '" data-code="' + THD.quoteCode(q) + '">' +
-        '<span class="stat-label">' + q.label + '</span>' +
-        '<span class="stat-val">--</span>' +
-        '<span class="stat-pct flat">--</span></div>';
+      if (THD.quoteCode(q) === m.primaryCode) main.push(q); else rest.push(q);
     }
+    return main.concat(rest);
+  }
+
+  function renderQuotesCol(m) {
+    const list = orderedQuotes(m);
+    let html = '';
+    list.forEach(function (q, idx) {
+      const code = THD.quoteCode(q);
+      const dec = q.decimals != null ? q.decimals : 2;
+      html += '<div class="q-line ' + (idx === 0 ? 'q-main' : 'q-sub') + '" data-market="' + m.id + '" data-code="' + code + '" data-decimals="' + dec + '">' +
+        '<span class="q-label">' + q.label + '</span>' +
+        '<span class="q-val">--</span>' +
+        '<span class="q-pct flat">--</span>' +
+      '</div>';
+    });
     return html;
   }
 
-  function badgeHtml(st) {
-    return '<span class="badge st-' + st.status + '"><span class="dot dot-' + st.status + '"></span>' +
-      '<span class="badge-text">' + STATUS_META[st.status].label + '</span></span>';
-  }
+  const cdPrefix = label => (label || '').replace(/^距/, '');
 
-  function renderCard(m, st, now) {
-    let cd;
+  function cdHtml(st, now) {
     if (st.countdownLabel && st.targetMs) {
-      cd = '<span class="countdown" data-label="' + st.countdownLabel + '" data-target="' + st.targetMs + '">' +
-        st.countdownLabel + ' ' + THD.fmtDuration(st.targetMs - now.nowMs) + '</span>';
-    } else {
-      cd = '<span class="countdown" hidden></span>';
+      const p = cdPrefix(st.countdownLabel);
+      return '<span class="countdown" data-label="' + p + '" data-target="' + st.targetMs + '">' +
+        p + ' ' + THD.fmtCompactDuration(st.targetMs - now.nowMs) + '</span>';
     }
-    return '<article class="card" data-id="' + m.id + '" data-tlkey="' + tlKey(st.timelineSegs) + '" tabindex="0" role="link" aria-label="进入' + m.name + '桌面时钟">' +
-      '<header class="card-head">' +
-        '<div class="card-title-wrap">' + (m.sub ? '<div class="card-kicker">' + m.sub + '</div>' : '') +
-          '<h2 class="card-title">' + m.name + '</h2></div>' +
-        '<div class="card-head-right">' + badgeHtml(st) +
-          '<span class="card-icon">' + (ICONS[m.id] || '') + '</span>' +
-          '<span class="card-go" aria-hidden="true" title="进入桌面时钟">⛶</span></div>' +
-      '</header>' +
-      '<div class="stats' + (m.quotes.length >= 3 ? ' stats-multi' : '') + '">' + renderStats(m) + '</div>' +
-      '<div class="card-foot"><div class="detail-line"><span class="detail">' + st.detail + '</span>' + cd + '</div></div>' +
-      '<div class="timeline">' + renderTimeline(st.timelineSegs, now.minute, m.id !== 'crypto') + '</div>' +
-      '</article>';
+    return '<span class="countdown cd-muted">—</span>';
   }
 
-  // 增量更新单张卡片，不重建 DOM
-  function patchCard(el, m, st, now) {
-    el.classList.toggle('is-open', st.status === 'open');
-    const badge = el.querySelector('.badge');
-    badge.className = 'badge st-' + st.status;
-    badge.querySelector('.dot').className = 'dot dot-' + st.status;
-    badge.querySelector('.badge-text').textContent = STATUS_META[st.status].label;
-    el.querySelector('.detail').textContent = st.detail;
+  function renderRow(m, st, now) {
+    const active = st.status === 'open' || st.status === 'pre' || st.status === 'post';
+    return '<article class="m-row' + (active ? ' is-active-row' : '') + '" data-id="' + m.id + '" data-status="' + st.status + '" data-tlkey="' + tlKey(st.timelineSegs) + '" tabindex="0" role="link" aria-label="进入' + m.name + '桌面时钟">' +
+      '<div class="m-info">' +
+        '<div class="m-name-line">' +
+          '<span class="m-name">' + m.name + '</span>' +
+          '<span class="m-state st-' + st.status + '"><span class="dot dot-' + st.status + '"></span><span class="m-state-text">' + STATUS_META[st.status].label + '</span></span>' +
+        '</div>' +
+        '<div class="m-detail">' + st.detail + '</div>' +
+      '</div>' +
+      '<div class="m-quotes">' + renderQuotesCol(m) + '</div>' +
+      '<div class="m-track">' + renderTrack(st.timelineSegs, now.minute, m.id !== 'crypto') + '</div>' +
+      '<div class="m-cd">' + cdHtml(st, now) + '<span class="m-arrow" aria-hidden="true">→</span></div>' +
+    '</article>';
+  }
+
+  function patchRow(el, m, st, now) {
+    const active = st.status === 'open' || st.status === 'pre' || st.status === 'post';
+    el.classList.toggle('is-active-row', active);
+    el.dataset.status = st.status;
+
+    const stateEl = el.querySelector('.m-state');
+    stateEl.className = 'm-state st-' + st.status;
+    stateEl.querySelector('.dot').className = 'dot dot-' + st.status;
+    stateEl.querySelector('.m-state-text').textContent = STATUS_META[st.status].label;
+    el.querySelector('.m-detail').textContent = st.detail;
 
     const cd = el.querySelector('.countdown');
     if (st.countdownLabel && st.targetMs) {
-      cd.dataset.label = st.countdownLabel;
+      const p = cdPrefix(st.countdownLabel);
+      cd.classList.remove('cd-muted');
+      cd.dataset.label = p;
       cd.dataset.target = st.targetMs;
-      cd.textContent = st.countdownLabel + ' ' + THD.fmtDuration(st.targetMs - now.nowMs);
-      cd.hidden = false;
+      cd.textContent = p + ' ' + THD.fmtCompactDuration(st.targetMs - now.nowMs);
     } else {
-      cd.hidden = true;
+      cd.classList.add('cd-muted');
       cd.removeAttribute('data-target');
+      cd.removeAttribute('data-label');
+      cd.textContent = '—';
     }
 
-    // 时间轴：仅当时段结构变化时才重绘，否则只移动当前时间游标
-    const tl = el.querySelector('.timeline');
+    const track = el.querySelector('.m-track');
     const key = tlKey(st.timelineSegs);
     if (el.dataset.tlkey !== key) {
       el.dataset.tlkey = key;
-      tl.innerHTML = renderTimeline(st.timelineSegs, now.minute, m.id !== 'crypto');
-    } else {
-      const nowEl = tl.querySelector('.timeline-now');
-      if (nowEl) nowEl.style.left = (now.minute / 1440 * 100).toFixed(2) + '%';
+      track.innerHTML = renderTrack(st.timelineSegs, now.minute, m.id !== 'crypto');
     }
   }
 
@@ -115,13 +140,26 @@
   const trendCls = v => (v == null || !isFinite(v)) ? 'flat' : (v > 0 ? 'up' : (v < 0 ? 'down' : 'flat'));
 
   function updateQuotes() {
-    grid.querySelectorAll('.stat[data-market]').forEach(function (el) {
+    grid.querySelectorAll('.q-line[data-market]').forEach(function (el) {
       const v = Q.getValue(el.dataset.market, el.dataset.code);
-      el.querySelector('.stat-val').textContent = THD.fmtPrice(v.price);
-      const pctEl = el.querySelector('.stat-pct');
+      const dec = +el.dataset.decimals;
+      el.querySelector('.q-val').textContent = THD.fmtPrice(v.price, isFinite(dec) ? dec : 2);
+      const pctEl = el.querySelector('.q-pct');
       pctEl.textContent = THD.fmtPct(v.pct);
-      pctEl.className = 'stat-pct ' + trendCls(v.pct);
+      pctEl.className = 'q-pct ' + trendCls(v.pct);
     });
+    if (macroStrip) {
+      macroStrip.querySelectorAll('.macro-item[data-code]').forEach(function (el) {
+        const v = Q.getValue('macro', el.dataset.code);
+        const dec = +el.dataset.decimals;
+        const formatted = THD.fmtPrice(v.price, isFinite(dec) ? dec : 2);
+        const suffix = el.dataset.suffix || '';
+        el.querySelector('.macro-val').textContent = (formatted !== '--' && suffix) ? formatted + suffix : formatted;
+        const pctEl = el.querySelector('.macro-pct');
+        pctEl.textContent = THD.fmtPct(v.pct);
+        pctEl.className = 'macro-pct ' + trendCls(v.pct);
+      });
+    }
   }
 
   // ---------- 刷新与排序 ----------
@@ -133,8 +171,8 @@
     });
   }
 
-  function buildCards(ordered, now) {
-    grid.innerHTML = ordered.map(m => renderCard(m, THD.getStatus(m.id, now), now)).join('');
+  function buildRows(ordered, now) {
+    grid.innerHTML = ordered.map(m => renderRow(m, THD.getStatus(m.id, now), now)).join('');
     lastOrder = ordered.map(m => m.id);
     updateQuotes();
   }
@@ -144,79 +182,81 @@
     updateHeader(now);
     const ordered = orderedMarkets(now);
     const newOrder = ordered.map(m => m.id);
-    if (newOrder.join(',') !== lastOrder.join(',')) { buildCards(ordered, now); return; }
-    for (const m of ordered) {
-      const el = grid.querySelector('.card[data-id="' + m.id + '"]');
-      if (el) patchCard(el, m, THD.getStatus(m.id, now), now);
+    if (newOrder.join(',') !== lastOrder.join(',')) {
+      buildRows(ordered, now);
+    } else {
+      for (const m of ordered) {
+        const el = grid.querySelector('.m-row[data-id="' + m.id + '"]');
+        if (el) patchRow(el, m, THD.getStatus(m.id, now), now);
+      }
     }
+    updateLaser(now);
   }
 
-  // ---------- 头部 ----------
+  // ---------- 头部全局摘要（去复读） ----------
   function updateHeader(now) {
-    document.getElementById('date-line').textContent =
-      now.y + '年' + now.m + '月' + now.d + '日 ' + WEEK_CN[now.weekday].replace('周', '星期');
+    document.getElementById('date-line').textContent = now.m + '月' + now.d + '日 ' + WEEK_CN[now.weekday];
     document.getElementById('data-warning').hidden = THD.isCalendarCovered(now.key);
 
-    const st = THD.statusFns.aShare(now);
-    const dot = document.querySelector('#day-tip .dot');
-    const txt = document.getElementById('day-tip-text');
-    if (st.status === 'holiday') {
-      dot.className = 'dot dot-holiday'; txt.textContent = '今日 A股休市（' + st.holidayName + '）';
-    } else if (st.status === 'weekend') {
-      dot.className = 'dot dot-weekend'; txt.textContent = '今日 A股休市（周末）';
-    } else {
-      dot.className = 'dot dot-open'; txt.textContent = '今日 A股交易日';
+    let openCount = 0;
+    let euOpen = false, usOpen = false;
+    for (const m of MARKETS) {
+      const s = THD.getStatus(m.id, now);
+      if (s.status === 'open') {
+        openCount++;
+        if (m.id === 'eu') euOpen = true;
+        if (m.id === 'us') usOpen = true;
+      }
     }
+    let summary = openCount + '/' + MARKETS.length + ' 市场交易中';
+    if (euOpen && usOpen) summary += ' · 欧美重叠窗口';
+    const sum = document.getElementById('market-summary');
+    if (sum) sum.textContent = summary;
   }
 
   function updateClock() {
     const now = THD.beijingNow();
     document.getElementById('clock').textContent = pad(now.h) + ':' + pad(now.min) + ':' + pad(now.s);
+    updateLaser(now);
   }
 
-  // 行情数据状态胶囊：让用户一眼分辨「实时流 / 轮询 / 本地缓存」
   function updateConnPill() {
     const pill = document.getElementById('conn-pill');
     if (!pill) return;
     const info = Q.liveInfo();
-    let cls = 'conn-off', text = '行情连接中…';
+    let cls = 'conn-off', text = '连接中';
     const t = info.at ? THD.beijingNow(info.at) : null;
     const hhmm = t ? pad(t.h) + ':' + pad(t.min) : '';
-    if (info.live) { cls = 'conn-live'; text = '实时流已连接 · ' + hhmm + ' 更新'; }
-    else if (info.gotLive) { cls = 'conn-poll'; text = '轮询刷新 · ' + hhmm + ' 更新'; }
-    else if (info.hasCache) { cls = 'conn-cache'; text = '本地缓存数据 · ' + hhmm; }
-    pill.className = 'conn-pill ' + cls;
+    if (info.live) { cls = 'conn-live'; text = '实时'; }
+    else if (info.gotLive) { cls = 'conn-poll'; text = '轮询'; }
+    else if (info.hasCache) { cls = 'conn-cache'; text = '缓存 · ' + hhmm; }
+    pill.className = 'conn-indicator ' + cls;
     pill.querySelector('.conn-text').textContent = text;
   }
 
   function tickCountdowns() {
     const nowMs = Date.now();
     grid.querySelectorAll('.countdown[data-target]').forEach(function (el) {
-      el.textContent = el.dataset.label + ' ' + THD.fmtDuration(+el.dataset.target - nowMs);
+      el.textContent = el.dataset.label + ' ' + THD.fmtCompactDuration(+el.dataset.target - nowMs);
     });
   }
 
   // ---------- 页脚 ----------
   function renderLegend() {
     const items = [
-      ['交易中', 'dot-open'], ['午间休市', 'dot-lunch'], ['盘前', 'dot-pre'], ['盘后', 'dot-post'],
-      ['隔夜休市', 'dot-overnight'], ['周末休市', 'dot-weekend'], ['休市', 'dot-holiday']
+      ['交易中', 'dot-open'], ['午休', 'dot-lunch'], ['竞价/盘前', 'dot-pre'],
+      ['盘后', 'dot-post'], ['隔夜', 'dot-overnight'], ['假期', 'dot-holiday']
     ];
     let html = '';
     for (const [t, c] of items) html += '<span><span class="sw ' + c + '"></span>' + t + '</span>';
-    html += '<span class="legend-up"><span class="sw"></span>涨</span><span class="legend-down"><span class="sw"></span>跌</span>';
     document.getElementById('legend').innerHTML = html;
   }
 
   function renderSrc() {
     document.getElementById('src').innerHTML =
-      '行情数据来源：腾讯财经（股指与 ICE 布伦特原油，30秒刷新）/ 东方财富（日经、韩股及兜底）、Binance 现货镜像（BTC 实时流），可能存在延迟，仅供参考。<br>' +
-      '交易时段与节假日来源：上交所 / 港交所 / JPX / KRX / NYSE / ICE Futures Europe 官方日历，覆盖 ' +
-      DATA_YEARS[0] + '–' + DATA_YEARS[DATA_YEARS.length - 1] + ' 年（A股 2027 年待上交所年底公告复核）。' +
-      '本页面不构成任何投资建议。';
+      '数据源：腾讯 · 华尔街见闻 · 东财 · Binance｜' + DATA_YEARS[0] + '–' + DATA_YEARS[DATA_YEARS.length - 1] + ' 日历｜点击行进入桌面时钟';
   }
 
-  // ---------- 涨跌色：默认绿涨红跌，可切换 ----------
   function applyTrend(mode) {
     document.body.dataset.trend = mode;
     const btn = document.getElementById('btn-trend');
@@ -235,16 +275,16 @@
     document.getElementById('btn-clock').addEventListener('click', function () {
       location.hash = prefs.get('lastMarket', 'crypto');
     });
-    // 整张卡片点击 / 回车直达该市场的全屏 Float 时钟
     grid.addEventListener('click', function (e) {
-      const card = e.target.closest('.card[data-id]');
-      if (card) location.hash = card.dataset.id;
+      const row = e.target.closest('.m-row[data-id]');
+      if (row) location.hash = row.dataset.id;
     });
     grid.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter' && e.key !== ' ') return;
-      const card = e.target.closest('.card[data-id]');
-      if (card) { e.preventDefault(); location.hash = card.dataset.id; }
+      const row = e.target.closest('.m-row[data-id]');
+      if (row) { e.preventDefault(); location.hash = row.dataset.id; }
     });
+    renderMacroStrip();
     renderLegend();
     renderSrc();
     updateClock();

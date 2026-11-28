@@ -182,7 +182,7 @@
     // 倒计时上方有标签，高度占比收紧
     const hFrac = el.classList.contains('cd-time') ? 0.58 : 0.74;
     target = Math.min(target, window.innerHeight * hFrac / 0.88);
-    target = Math.max(40, Math.floor(target));
+    target = Math.max(28, Math.floor(target));
     el.style.fontSize = target + 'px';
 
     for (let i = 0; i < 2; i++) {
@@ -196,7 +196,7 @@
       const span = maxR - minL;
       if (span <= avail && minL >= limitL - 1 && maxR <= limitR + 1) break;
       const cur = parseFloat(getComputedStyle(el).fontSize);
-      el.style.fontSize = Math.max(40, Math.floor(cur * avail / span * 0.99)) + 'px';
+      el.style.fontSize = Math.max(28, Math.floor(cur * avail / span * 0.99)) + 'px';
     }
   }
 

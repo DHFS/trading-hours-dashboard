@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>交易时段看板 · 北京时间</title>
-  <meta name="theme-color" content="#0E1116" />
+  <meta name="theme-color" content="#090A0C" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -12,14 +12,12 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-180.png" />
   <link rel="icon" type="image/png" href="icon-192.png" />
-  <meta name="description" content="以北京时间为基准的全球交易时段看板：A股、港股、日经、韩股、美股、加密货币、布伦特原油实时开休市状态与行情，支持 iPhone 横屏 StandBy 风格桌面时钟。" />
+  <meta name="description" content="以北京时间为基准的全球交易时段看板：A股、港股、日经、韩股、欧股、美股、黄金、原油与加密货币实时开休市状态与行情，支持 iPhone StandBy 风格桌面时钟。" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Nunito:wght@800;900&display=swap" rel="stylesheet" />
   <script>
-    // NOTE: 每次打开生成新的资源版本号，绕过 iOS 主屏 PWA / CDN 对静态文件的缓存，
-    // 确保改版后无需手动强刷即可加载最新样式与脚本（脚本在 body 末尾以此版本号注入）。
+    // NOTE: 每次打开生成新的资源版本号，绕过 iOS 主屏 PWA / CDN 对静态文件的缓存
     window.THD_VER = Date.now().toString(36);
     ['tokens', 'dashboard', 'float-clock'].forEach(function (n) {
       document.write('<link rel="stylesheet" href="css/' + n + '.css?v=' + window.THD_VER + '">');
@@ -27,28 +25,41 @@
   </script>
 </head>
 <body>
-  <div class="rotate-hint">请横屏使用</div>
+  <!-- 移动端竖屏进入全屏时钟时的非阻断双选引导层 -->
+  <div id="portrait-choice" class="portrait-choice" role="dialog" aria-label="视图模式选择">
+    <div class="pc-inner">
+      <div class="pc-title">桌面时钟建议横屏摆放</div>
+      <p class="pc-desc">将手机横置即可自动进入全屏 Float 桌面时钟，你也可以先浏览移动端网页看板，或直接竖屏查看时钟。</p>
+      <div class="pc-actions">
+        <button type="button" id="btn-to-web" class="pc-btn pc-btn-primary">切换到移动端网页看板</button>
+        <button type="button" id="btn-stay-portrait" class="pc-btn">仍然竖屏查看时钟</button>
+      </div>
+    </div>
+  </div>
 
-  <!-- 形态一：全球交易看板 -->
+  <!-- 形态一：瑞士世界时极简联动矩阵看板 -->
   <div id="dashboard-view">
-    <div class="announce">全球交易时段 · 以北京时间为基准（UTC+8）</div>
     <div class="container">
-      <header class="hero">
-        <div class="hero-left">
-          <div class="kicker">Market Hours · Asia/Shanghai</div>
-          <h1>交易时段看板</h1>
-          <div id="date-line">—</div>
-          <div class="hero-chips">
-            <div id="day-tip"><span class="dot"></span><span id="day-tip-text">—</span></div>
-            <div id="conn-pill" class="conn-pill conn-off"><span class="conn-dot"></span><span class="conn-text">行情连接中…</span></div>
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="title-row">
+            <h1>交易时段</h1>
+            <span id="conn-pill" class="conn-indicator conn-off"><span class="conn-dot"></span><span class="conn-text">连接中</span></span>
+          </div>
+          <div class="sub-row">
+            <span id="date-line">—</span>
+            <span class="sep" aria-hidden="true">·</span>
+            <span id="market-summary">正在计算市场状态</span>
           </div>
         </div>
-        <div class="hero-right">
-          <div id="clock">--:--:--</div>
-          <div class="tz">北京时间 UTC+8</div>
-          <div class="hero-actions">
+        <div class="topbar-right">
+          <div class="clock-block">
+            <div id="clock">--:--:--</div>
+            <div class="tz">北京时间 UTC+8</div>
+          </div>
+          <div class="topbar-actions">
             <button type="button" id="btn-trend" class="pill-btn" aria-pressed="false">涨绿跌红</button>
-            <button type="button" id="btn-clock" class="pill-btn pill-btn-primary">桌面时钟模式</button>
+            <button type="button" id="btn-clock" class="pill-btn pill-btn-primary">桌面时钟</button>
           </div>
         </div>
       </header>
@@ -57,7 +68,29 @@
         节假日数据仅覆盖 2026–2027 年，当前日期已超出覆盖范围，时段判定可能不准确，请更新 js/data.js。
       </div>
 
-      <main id="grid" class="grid"></main>
+      <div id="macro-strip" class="macro-strip" aria-label="全球宏观风向标"></div>
+
+      <section class="matrix" aria-label="全球交易时段联动矩阵">
+        <div class="matrix-head">
+          <div>市场</div>
+          <div class="mh-quotes">行情</div>
+          <div class="mh-scale">
+            <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
+          </div>
+          <div class="mh-cd">倒计时</div>
+        </div>
+
+        <div class="matrix-body">
+          <div class="matrix-guides" aria-hidden="true">
+            <i style="left:0%"></i><i style="left:25%"></i><i style="left:50%"></i><i style="left:75%"></i><i style="left:100%"></i>
+          </div>
+          <div class="matrix-laser-wrap" aria-hidden="true">
+            <div id="global-past-veil" class="matrix-past-veil"></div>
+            <div id="global-laser" class="matrix-laser"><span id="global-laser-tag" class="laser-tag">--:--</span></div>
+          </div>
+          <main id="grid" class="matrix-rows"></main>
+        </div>
+      </section>
 
       <footer>
         <div class="legend" id="legend"></div>
@@ -66,20 +99,17 @@
     </div>
   </div>
 
-  <!-- 形态二：iPhone 横屏 Float 桌面时钟 -->
+  <!-- 形态二：iPhone Float 桌面时钟 -->
   <div id="clock-view">
     <div id="clock-stage-root"></div>
   </div>
 
   <script>
-    // 用同一个动态版本号按顺序加载脚本（document.write 插入的脚本按顺序同步执行）
     ['data', 'market-time', 'quotes', 'float-engine', 'ui-dashboard', 'ui-clock', 'main'].forEach(function (n) {
       document.write('<script src="js/' + n + '.js?v=' + window.THD_VER + '"><\/script>');
     });
   </script>
   <script>
-    // 注册 Service Worker：同源资源网络优先，破解 iOS 主屏 PWA 缓存旧文件导致改版不生效的问题。
-    // 新 SW 接管后自动刷新一次（用 sessionStorage 防循环刷新）。
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('./sw.js').then(function (reg) {

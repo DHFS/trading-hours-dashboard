@@ -1,6 +1,7 @@
 // ============================================================
 // 启动与路由：Dashboard ↔ 全屏 Float 时钟 无刷新互切
 // location.hash 为市场 id 时进入全屏时钟，为空则回到看板
+// 移动端竖屏下给予用户切换网页或继续竖屏看时钟的自由选择权
 // ============================================================
 (function (root) {
   const THD = root.THD;
@@ -24,7 +25,7 @@
       THD.Clock.show(id, wasFullscreen); // 仅在时钟内部切换市场时淡入淡出
       wasFullscreen = true;
     } else {
-      body.classList.remove('mode-fullscreen');
+      body.classList.remove('mode-fullscreen', 'allow-portrait-clock');
       THD.Clock.hideHud();
       wasFullscreen = false;
       THD.Dashboard.refresh();
@@ -32,9 +33,24 @@
     }
   }
 
+  function bindPortraitChoice() {
+    const toWeb = document.getElementById('btn-to-web');
+    const stay = document.getElementById('btn-stay-portrait');
+    if (toWeb) {
+      toWeb.addEventListener('click', function () { location.hash = ''; });
+    }
+    if (stay) {
+      stay.addEventListener('click', function () {
+        body.classList.add('allow-portrait-clock');
+        requestAnimationFrame(function () { THD.Float.fitFloatStage(); });
+      });
+    }
+  }
+
   function boot() {
     THD.Dashboard.init();
     THD.Clock.init();
+    bindPortraitChoice();
     THD.Quotes.onUpdate(function () {
       THD.Dashboard.updateQuotes();
       THD.Clock.updateQuotes();

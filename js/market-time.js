@@ -77,6 +77,16 @@
     return '不足 1 分钟';
   }
 
+  // 瑞士紧凑倒计时（如 45h 22m / 12m）
+  function fmtCompactDuration(ms) {
+    if (ms <= 0) return '已到';
+    const totalMin = Math.round(ms / 60000);
+    const hh = Math.floor(totalMin / 60), mm = totalMin % 60;
+    if (hh > 0) return hh + 'h ' + pad(mm) + 'm';
+    if (mm > 0) return mm + 'm';
+    return '<1m';
+  }
+
   // 秒级倒计时 HH:MM:SS（小时数超过 99 时自然扩展为 3 位）
   function fmtClockCountdown(ms) {
     if (ms <= 0) return '00:00:00';
@@ -85,9 +95,10 @@
   }
 
   // 无有效价格（null/NaN/<=0）时显示占位符，避免误导
-  function fmtPrice(v) {
+  function fmtPrice(v, decimals) {
     if (v == null || !isFinite(v) || v <= 0) return '--';
-    return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const d = decimals == null ? 2 : decimals;
+    return v.toLocaleString('zh-CN', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
 
   // Float 主数字：无千分位；decimals=0 取整，decimals>0 固定小数位
@@ -119,14 +130,16 @@
   function getHolidayName(id, key) {
     if (id === 'aShare') {
       for (const [r, name] of A_SHARE_HOLIDAY_NAMES) if (key >= r[0] && key <= r[1]) return name;
-      return '节假日';
+      return '法定假期';
     }
-    if (id === 'us') return '美股休市日';
-    if (id === 'hk') return '港股休市日';
-    if (id === 'jp') return '东京休市日';
-    if (id === 'kr') return '首尔休市日';
-    if (id === 'brent') return 'ICE 休市日';
-    return '休市';
+    if (id === 'us') return 'NYSE 法定假期';
+    if (id === 'eu') return 'XETRA 法定假期';
+    if (id === 'hk') return '香港公众假期';
+    if (id === 'jp') return '东京法定假期';
+    if (id === 'kr') return '首尔法定假期';
+    if (id === 'gold') return 'COMEX 法定假期';
+    if (id === 'brent') return 'ICE 法定假期';
+    return '法定假期';
   }
 
   // 日期是否在日历覆盖范围内（超出时页面提示更新）
@@ -135,35 +148,41 @@
     return DATA_YEARS.indexOf(y) >= 0;
   }
 
-  // ---------- 亚太常规市场（A股/港股/日经/韩股） ----------
+  // ---------- 亚太常规市场（A股/港股/日股/韩股） ----------
   const CFG = {
     aShare: {
       id: 'aShare', openMinute: 570, closeMinute: 900,
+      hours: '09:30–11:30 · 13:00–15:00',
       sessions: [
-        { start: 570, end: 690, type: 'open', label: '早盘 09:30–11:30' },
-        { start: 690, end: 780, type: 'lunch', label: '午间休市 11:30–13:00' },
-        { start: 780, end: 900, type: 'open', label: '午盘 13:00–15:00' }
+        { start: 555, end: 565, type: 'pre', label: '集合竞价 09:15–09:25' },
+        { start: 570, end: 690, type: 'open', label: '09:30–11:30 · 13:00–15:00' },
+        { start: 690, end: 780, type: 'lunch', label: '09:30–11:30 · 13:00–15:00' },
+        { start: 780, end: 900, type: 'open', label: '09:30–11:30 · 13:00–15:00' }
       ]
     },
     hk: {
       id: 'hk', openMinute: 570, closeMinute: 960,
+      hours: '09:30–12:00 · 13:00–16:00',
       sessions: [
-        { start: 570, end: 720, type: 'open', label: '早盘 09:30–12:00' },
-        { start: 720, end: 780, type: 'lunch', label: '午间休市 12:00–13:00' },
-        { start: 780, end: 960, type: 'open', label: '午盘 13:00–16:00' }
+        { start: 540, end: 560, type: 'pre', label: '开市前竞价 09:00–09:20' },
+        { start: 570, end: 720, type: 'open', label: '09:30–12:00 · 13:00–16:00' },
+        { start: 720, end: 780, type: 'lunch', label: '09:30–12:00 · 13:00–16:00' },
+        { start: 780, end: 960, type: 'open', label: '09:30–12:00 · 13:00–16:00' }
       ]
     },
     jp: {
       id: 'jp', openMinute: 480, closeMinute: 870,
+      hours: '08:00–10:30 · 11:30–14:30',
       sessions: [
-        { start: 480, end: 630, type: 'open', label: '早盘 08:00–10:30' },
-        { start: 630, end: 690, type: 'lunch', label: '午间休市 10:30–11:30' },
-        { start: 690, end: 870, type: 'open', label: '午盘 11:30–14:30' }
+        { start: 480, end: 630, type: 'open', label: '08:00–10:30 · 11:30–14:30' },
+        { start: 630, end: 690, type: 'lunch', label: '08:00–10:30 · 11:30–14:30' },
+        { start: 690, end: 870, type: 'open', label: '08:00–10:30 · 11:30–14:30' }
       ]
     },
     kr: {
       id: 'kr', openMinute: 480, closeMinute: 870,
-      sessions: [{ start: 480, end: 870, type: 'open', label: '交易 08:00–14:30' }]
+      hours: '08:00–14:30',
+      sessions: [{ start: 480, end: 870, type: 'open', label: '08:00–14:30' }]
     }
   };
 
@@ -173,9 +192,13 @@
 
   function buildSegs(cfg) {
     const segs = [];
-    if (cfg.openMinute > 0) segs.push({ start: 0, end: cfg.openMinute, cls: 'tl-overnight' });
-    for (const s of cfg.sessions) segs.push({ start: s.start, end: s.end, cls: segCls(s.type) });
-    if (cfg.closeMinute < 1440) segs.push({ start: cfg.closeMinute, end: 1440, cls: 'tl-overnight' });
+    let cur = 0;
+    for (const s of cfg.sessions) {
+      if (s.start > cur) segs.push({ start: cur, end: s.start, cls: 'tl-overnight' });
+      segs.push({ start: s.start, end: s.end, cls: segCls(s.type) });
+      cur = s.end;
+    }
+    if (cur < 1440) segs.push({ start: cur, end: 1440, cls: 'tl-overnight' });
     return segs;
   }
 
@@ -198,49 +221,59 @@
     if (!isTradingDay(cfg.id, now.key)) {
       const t = nextOpen(cfg, now.key);
       if (now.weekday === 0 || now.weekday === 6) {
-        return result('weekend', '周末休市', '距开盘', t, [{ start: 0, end: 1440, cls: 'tl-closed' }], null, t);
+        return result('weekend', cfg.hours, '距开盘', t, [{ start: 0, end: 1440, cls: 'tl-closed' }], null, t);
       }
       const name = getHolidayName(cfg.id, now.key);
-      return result('holiday', name + ' · 休市', '距开盘', t, [{ start: 0, end: 1440, cls: 'tl-holiday' }], name, t);
+      return result('holiday', name, '距开盘', t, [{ start: 0, end: 1440, cls: 'tl-holiday' }], name, t);
     }
 
-    // 港股半日市：仅上午交易
+    // 港股半日市：仅上午交易（含开市前竞价）
     if (cfg.id === 'hk' && HOLIDAYS.hkHalf.includes(now.key)) {
       const halfSegs = [
-        { start: 0, end: 570, cls: 'tl-overnight' },
+        { start: 0, end: 540, cls: 'tl-overnight' },
+        { start: 540, end: 560, cls: 'tl-pre' },
+        { start: 560, end: 570, cls: 'tl-overnight' },
         { start: 570, end: 720, cls: 'tl-open' },
         { start: 720, end: 1440, cls: 'tl-overnight' }
       ];
+      if (now.minute >= 540 && now.minute < 560) {
+        const t = bjMinuteToMs(now.key, 570);
+        return result('pre', '开市前竞价 09:00–09:20 · 半日市', '距开盘', t, halfSegs, null, t);
+      }
       if (now.minute >= 570 && now.minute < 720) {
-        return result('open', '早盘 09:30–12:00（半日市）', '距收盘', bjMinuteToMs(now.key, 720), halfSegs, null, now.nowMs);
+        return result('open', '半日市 09:30–12:00', '距收盘', bjMinuteToMs(now.key, 720), halfSegs, null, now.nowMs);
       }
       if (now.minute < 570) {
         const t = bjMinuteToMs(now.key, 570);
-        return result('overnight', '开盘前（半日市）', '距开盘', t, halfSegs, null, t);
+        return result('overnight', '半日市 09:30–12:00', '距开盘', t, halfSegs, null, t);
       }
       const t = nextOpen(cfg, now.key);
-      return result('overnight', '半日市 · 已收盘', '距开盘', t, halfSegs, null, t);
+      return result('overnight', '半日市 09:30–12:00', '距开盘', t, halfSegs, null, t);
     }
 
     for (const seg of cfg.sessions) {
       if (now.minute >= seg.start && now.minute < seg.end) {
         if (seg.type === 'open') {
           const label = seg.end === cfg.closeMinute ? '距收盘' : '距午休';
-          return result('open', seg.label, label, bjMinuteToMs(now.key, seg.end), segs, null, now.nowMs);
+          return result('open', cfg.hours, label, bjMinuteToMs(now.key, seg.end), segs, null, now.nowMs);
+        }
+        if (seg.type === 'pre') {
+          const t = bjMinuteToMs(now.key, cfg.openMinute);
+          return result('pre', seg.label, '距开盘', t, segs, null, t);
         }
         const nextSeg = cfg.sessions.find(s => s.type === 'open' && s.start >= seg.end);
         const tgt = nextSeg ? nextSeg.start : seg.end;
         const t = bjMinuteToMs(now.key, tgt);
-        return result('lunch', seg.label, '距午盘', t, segs, null, t);
+        return result('lunch', cfg.hours, '距午盘', t, segs, null, t);
       }
     }
 
     if (now.minute < cfg.openMinute) {
       const t = bjMinuteToMs(now.key, cfg.openMinute);
-      return result('overnight', '开盘前', '距开盘', t, segs, null, t);
+      return result('overnight', cfg.hours, '距开盘', t, segs, null, t);
     }
     const t = nextOpen(cfg, now.key);
-    return result('overnight', '已收盘', '距开盘', t, segs, null, t);
+    return result('overnight', cfg.hours, '距开盘', t, segs, null, t);
   }
 
   // ---------- 美股（夏令时 + 美东日期） ----------
@@ -358,14 +391,15 @@
     const info = usPhaseInfo(now.nowMs);
     const { status, offset, etKey, etMin, isEarly } = info;
     const segs = buildUsTimeline(now.key);
+    const regHours = offset === 4 ? '21:30–04:00 · 夏令时' : '22:30–05:00 · 冬令时';
 
     if (status === 'holiday') {
       const t = usNextOpenMs(etKey);
-      return result('holiday', '美股休市日', '距开盘', t, segs, '美股休市日', t);
+      return result('holiday', 'NYSE 法定假期', '距开盘', t, segs, 'NYSE 法定假期', t);
     }
     if (status === 'weekend') {
       const t = usNextOpenMs(etKey);
-      return result('weekend', '周末休市', '距开盘', t, segs, null, t);
+      return result('weekend', regHours, '距开盘', t, segs, null, t);
     }
 
     const bj = offset === 4
@@ -382,27 +416,101 @@
 
     if (status === 'pre') {
       const t = usOpenMs(etKey);
-      return result('pre', '盘前 ' + bj.pre + '（北京）', '距开盘', t, segs, null, t);
+      return result('pre', '盘前 ' + bj.pre + (isEarly ? ' · 提前收盘' : ''), '距开盘', t, segs, null, t);
     }
     if (status === 'open') {
-      const detail = isEarly ? '常规交易 ' + bj.open + '（北京·提前收盘）' : '常规交易 ' + bj.open + '（北京）';
+      const detail = isEarly ? bj.open + ' · 提前收盘' : regHours;
       return result('open', detail, '距收盘', usCloseMs(etKey, isEarly), segs, null, now.nowMs);
     }
     if (status === 'post') {
       const t = usNextOpenMs(etKey);
-      const detail = isEarly ? '盘后 ' + bj.post + '（北京·提前收盘）' : '盘后 ' + bj.post + '（北京）';
+      const detail = '盘后 ' + bj.post + (isEarly ? ' · 提前收盘' : '');
       return result('post', detail, '距开盘', t, segs, null, t);
     }
+    const overnightDetail = isEarly ? bj.open + ' · 提前收盘' : regHours;
     if (etMin < 240) {
-      return result('overnight', '隔夜', '距盘前', usPreMs(etKey), segs, null, usOpenMs(etKey));
+      return result('overnight', overnightDetail, '距盘前', usPreMs(etKey), segs, null, usOpenMs(etKey));
     }
     const t = usNextOpenMs(etKey);
-    return result('overnight', '隔夜', '距开盘', t, segs, null, t);
+    return result('overnight', overnightDetail, '距开盘', t, segs, null, t);
   }
 
   // ---------- 加密货币：24/7 ----------
   function cryptoStatus(now) {
-    return result('open', '24/7 · 全年无休', null, null, [{ start: 0, end: 1440, cls: 'tl-open' }], null, now ? now.nowMs : 0);
+    return result('open', '24/7 全年无休', null, null, [{ start: 0, end: 1440, cls: 'tl-open' }], null, now ? now.nowMs : 0);
+  }
+
+  // ---------- CME / COMEX 黄金（美东周日 18:00 开盘 ~ 周五 17:00 收盘，每日 17:00–18:00 维护休市） ----------
+  function goldIsTradingDay(key) {
+    const dow = keyToDate(key).weekday;
+    return dow >= 1 && dow <= 5 && !HOLIDAYS.gold.includes(key);
+  }
+
+  function goldNextOpenMs(etKey, nowMs) {
+    for (let i = 0; i < 14; i++) {
+      const k = addDays(etKey, i);
+      if (goldIsTradingDay(k)) {
+        const openTs = usEtMs(addDays(k, -1), 18, 0);
+        if (openTs > nowMs) return openTs;
+      }
+    }
+    return usEtMs(etKey, 18, 0);
+  }
+
+  function goldPhaseInfo(nowMs) {
+    const offset = usIsDST(nowMs) ? 4 : 5;
+    const et = new Date(nowMs - offset * 3600e3);
+    const etKey = et.getUTCFullYear() + '-' + pad(et.getUTCMonth() + 1) + '-' + pad(et.getUTCDate());
+    const etMin = et.getUTCHours() * 60 + et.getUTCMinutes();
+    const etDow = et.getUTCDay();
+
+    let status;
+    let closeMs = null;
+    if (etMin < 1020) {
+      if (etDow === 0 || etDow === 6) status = 'weekend';
+      else if (HOLIDAYS.gold.includes(etKey)) status = 'holiday';
+      else {
+        status = 'open';
+        closeMs = usEtMs(etKey, 17, 0);
+      }
+    } else if (etMin < 1080) {
+      if (etDow === 0 || etDow === 6 || etDow === 5) status = 'weekend';
+      else if (HOLIDAYS.gold.includes(etKey)) status = 'holiday';
+      else status = 'overnight';
+    } else {
+      const nextKey = addDays(etKey, 1);
+      const nextDow = keyToDate(nextKey).weekday;
+      if (nextDow === 0 || nextDow === 6) status = 'weekend';
+      else if (HOLIDAYS.gold.includes(nextKey)) status = 'holiday';
+      else {
+        status = 'open';
+        closeMs = usEtMs(nextKey, 17, 0);
+      }
+    }
+    return { status, offset, etKey, closeMs };
+  }
+
+  function goldPhaseAt(nowMs) { return goldPhaseInfo(nowMs).status; }
+
+  function goldStatus(now) {
+    const { status, offset, etKey, closeMs } = goldPhaseInfo(now.nowMs);
+    const segs = buildTimelineBySampling(now.key, goldPhaseAt);
+    const hours = offset === 4 ? '06:00–次日05:00 · 夏令时' : '07:00–次日06:00 · 冬令时';
+
+    if (status === 'holiday') {
+      const t = goldNextOpenMs(etKey, now.nowMs);
+      return result('holiday', 'COMEX 法定假期', '距开盘', t, segs, 'COMEX 法定假期', t);
+    }
+    if (status === 'weekend') {
+      const t = goldNextOpenMs(etKey, now.nowMs);
+      return result('weekend', hours, '距开盘', t, segs, null, t);
+    }
+    if (status === 'open') {
+      return result('open', hours, '距休市', closeMs, segs, null, now.nowMs);
+    }
+    const t = goldNextOpenMs(etKey, now.nowMs);
+    const detail = offset === 4 ? '维护 05:00–06:00' : '维护 06:00–07:00';
+    return result('overnight', detail, '距开盘', t, segs, null, t);
   }
 
   // ---------- ICE 布伦特原油（伦敦时间 01:00–23:00，周一至周五；换算为北京时间展示） ----------
@@ -472,22 +580,92 @@
   function brentStatus(now) {
     const { status, L } = brentPhaseInfo(now.nowMs);
     const segs = buildBrentTimeline(now.key);
+    const hours = L.isBst ? '08:00–次日06:00 · 夏令时' : '09:00–次日07:00 · 冬令时';
 
     if (status === 'holiday') {
       const t = brentNextOpenMs(L.key, L.min);
-      return result('holiday', 'ICE 休市日 · 休市', '距开盘', t, segs, 'ICE 休市日', t);
+      return result('holiday', 'ICE 法定假期', '距开盘', t, segs, 'ICE 法定假期', t);
     }
     if (status === 'weekend') {
       const t = brentNextOpenMs(L.key, L.min);
-      return result('weekend', '周末休市', '距开盘', t, segs, null, t);
+      return result('weekend', hours, '距开盘', t, segs, null, t);
     }
     if (status === 'open') {
-      const detail = L.isBst ? '连续交易 08:00–次日06:00（北京·夏令时）' : '连续交易 09:00–次日07:00（北京·冬令时）';
-      return result('open', detail, '距休市', ukMinuteToMs(L.key, 1380), segs, null, now.nowMs);
+      return result('open', hours, '距休市', ukMinuteToMs(L.key, 1380), segs, null, now.nowMs);
     }
     const t = brentNextOpenMs(L.key, L.min);
-    const detail = L.isBst ? '每日维护休市 06:00–08:00（北京）' : '每日维护休市 07:00–09:00（北京）';
+    const detail = L.isBst ? '维护 06:00–08:00' : '维护 07:00–09:00';
     return result('overnight', detail, '距开盘', t, segs, null, t);
+  }
+
+  // ---------- 欧股（XETRA 法兰克福 09:00–17:30 CET/CEST，随欧洲夏令时换算北京） ----------
+  function euOffsetMinForDateKey(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    return ukIsDST(Date.UTC(y, m - 1, d, 12)) ? 120 : 60;
+  }
+
+  function euMinuteToMs(key, minute) {
+    const [y, m, d] = key.split('-').map(Number);
+    return Date.UTC(y, m - 1, d, 0, minute) - euOffsetMinForDateKey(key) * 60000;
+  }
+
+  function euLocal(nowMs) {
+    const isDst = ukIsDST(nowMs);
+    const t = new Date(nowMs + (isDst ? 7200e3 : 3600e3));
+    return {
+      isDst,
+      key: t.getUTCFullYear() + '-' + pad(t.getUTCMonth() + 1) + '-' + pad(t.getUTCDate()),
+      min: t.getUTCHours() * 60 + t.getUTCMinutes(),
+      dow: t.getUTCDay()
+    };
+  }
+
+  function euIsTradingDay(key) {
+    const dow = keyToDate(key).weekday;
+    return dow >= 1 && dow <= 5 && !HOLIDAYS.eu.includes(key);
+  }
+
+  function euNextOpenMs(key, min) {
+    if (euIsTradingDay(key) && min < 540) return euMinuteToMs(key, 540);
+    let k = key;
+    for (let i = 0; i < 14; i++) {
+      k = addDays(k, 1);
+      if (euIsTradingDay(k)) return euMinuteToMs(k, 540);
+    }
+    return euMinuteToMs(addDays(key, 1), 540);
+  }
+
+  function euPhaseInfo(nowMs) {
+    const L = euLocal(nowMs);
+    const weekday = L.dow >= 1 && L.dow <= 5;
+    let status;
+    if (weekday && HOLIDAYS.eu.includes(L.key)) status = 'holiday';
+    else if (L.dow === 0 || L.dow === 6) status = 'weekend';
+    else if (L.min >= 540 && L.min < 1050) status = 'open';
+    else status = 'overnight';
+    return { status, L };
+  }
+
+  function euPhaseAt(nowMs) { return euPhaseInfo(nowMs).status; }
+
+  function euStatus(now) {
+    const { status, L } = euPhaseInfo(now.nowMs);
+    const segs = buildTimelineBySampling(now.key, euPhaseAt);
+    const hours = L.isDst ? '15:00–23:30 · 夏令时' : '16:00–00:30 · 冬令时';
+
+    if (status === 'holiday') {
+      const t = euNextOpenMs(L.key, L.min);
+      return result('holiday', 'XETRA 法定假期', '距开盘', t, segs, 'XETRA 法定假期', t);
+    }
+    if (status === 'weekend') {
+      const t = euNextOpenMs(L.key, L.min);
+      return result('weekend', hours, '距开盘', t, segs, null, t);
+    }
+    if (status === 'open') {
+      return result('open', hours, '距收盘', euMinuteToMs(L.key, 1050), segs, null, now.nowMs);
+    }
+    const t = euNextOpenMs(L.key, L.min);
+    return result('overnight', hours, '距开盘', t, segs, null, t);
   }
 
   // ---------- 统一入口 ----------
@@ -496,8 +674,10 @@
     hk: now => computeRegularMarket(CFG.hk, now),
     jp: now => computeRegularMarket(CFG.jp, now),
     kr: now => computeRegularMarket(CFG.kr, now),
+    eu: euStatus,
     us: usStatus,
     crypto: cryptoStatus,
+    gold: goldStatus,
     brent: brentStatus
   };
 
@@ -511,11 +691,11 @@
 
   return {
     WEEK_CN, pad, beijingNow, keyToDate, addDays, inRanges, bjMinuteToMs,
-    fmtDuration, fmtClockCountdown, fmtPrice, fmtFloatValue, fmtPct, fmtClock,
+    fmtDuration, fmtCompactDuration, fmtClockCountdown, fmtPrice, fmtFloatValue, fmtPct, fmtClock,
     isTradingDay, getHolidayName, isCalendarCovered,
     CFG, computeRegularMarket,
     usDstBoundsForYear, usIsDST, usOffsetForEtDate, usStatus, usOpenMs,
-    ukIsDST, brentStatus, brentLocal,
+    ukIsDST, goldStatus, brentStatus, brentLocal, euStatus, euLocal,
     statusFns, getStatus, nextOpenMsOf
   };
 });

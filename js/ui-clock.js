@@ -1,5 +1,5 @@
 // ============================================================
-// 全屏桌面时钟：7 个市场统一的 iOS StandBy Float 纯黑画布
+// 全屏桌面时钟：9 个市场统一的 iOS StandBy Float 纯黑画布
 // - 交易活跃态（open/pre/post）：主舞台 = 主指数/价格（Float 差分滚动）
 // - 休市等待态（lunch/overnight/weekend/holiday）：主舞台 = 距开盘倒计时 HH:MM:SS
 // - 轻触屏幕呼出 HUD（选色/夜间红光/省电/锁定/返回），不再误切市场；左右滑动切换市场
@@ -55,9 +55,9 @@
     const closeRef = active ? '' :
       '<span class="clock-close" data-market="' + m.id + '" data-code="' + code + '">--</span>';
 
-    // 多指数市场在交易活跃态下，状态右侧轻量展示其余宽基指数
+    // 多指数市场在交易活跃态下，状态右侧轻量展示其余宽基指数（crypto 全屏仅保留极简 BTC）
     let extras = '';
-    if (active) {
+    if (active && m.id !== 'crypto') {
       for (const q of m.quotes) {
         const c = THD.quoteCode(q);
         if (c === code) continue;

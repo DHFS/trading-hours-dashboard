@@ -162,19 +162,117 @@ test('加密货币恒为交易中且排序距离为 0', () => {
   assert.strictEqual(T.getStatus('crypto', now).status, 'open');
   assert.strictEqual(T.nextOpenMsOf('crypto', now), now.nowMs);
 });
-test('格式化', () => {
+test('格式化与紧凑倒计时', () => {
   assert.strictEqual(T.fmtClockCountdown(216 * 3600e3 + 5000), '216:00:05');
+  assert.strictEqual(T.fmtCompactDuration(45 * 3600e3 + 22 * 60e3), '45h 22m');
+  assert.strictEqual(T.fmtCompactDuration(9 * 60e3), '9m');
+  assert.strictEqual(T.fmtCompactDuration(10 * 1000), '<1m');
+  assert.strictEqual(T.fmtPrice(6.65512, 4), '6.6551');
+  assert.strictEqual(T.fmtPrice(3681.1, 1), '3,681.1');
   assert.strictEqual(T.fmtFloatValue(72.456, 2), '72.46');
   assert.strictEqual(T.fmtFloatValue(108542.4, 0), '108542');
   assert.strictEqual(T.fmtFloatValue(null, 0), '--');
   assert.strictEqual(T.fmtPct(1.234), '+1.23%');
 });
+test('去复读校验：非交易态 detail 不重复输出状态词或（北京）', () => {
+  const wk = T.beijingNow(utc(2026, 11, 28, 12, 0)); // 周六休市
+  for (const id of D.MARKET_IDS) {
+    if (id === 'crypto') continue;
+    const s = T.getStatus(id, wk);
+    assert.ok(!s.detail.includes('休市'), id + ' 周末 detail 不应重复“休市”: ' + s.detail);
+    assert.ok(!s.detail.includes('（北京）'), id + ' detail 不应重复“（北京）”: ' + s.detail);
+  }
+  const night = T.beijingNow(utc(2026, 12, 1, 12, 0)); // 周二晚间美股盘前、亚太隔夜
+  assert.ok(!T.getStatus('aShare', night).detail.includes('已收盘'));
+  assert.ok(!T.getStatus('eu', night).detail.includes('（北京）'));
+});
 test('时间完整性：2026/2027 条目均为合法日期且升序无重复', () => {
-  for (const id of ['hk', 'hkHalf', 'jp', 'kr', 'us', 'usEarly', 'brent']) {
+  for (const id of ['hk', 'hkHalf', 'jp', 'kr', 'eu', 'us', 'usEarly', 'gold', 'brent']) {
     const arr = D.HOLIDAYS[id];
     for (const k of arr) assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(k) && !isNaN(Date.parse(k)), id + ' ' + k);
     assert.deepStrictEqual(arr, Array.from(new Set(arr)).sort(), id + ' 应升序且无重复');
   }
+});
+
+console.log('CME / COMEX 黄金');
+test('冬令时：周六北京 05:30 交易中，06:15 周末休市且周一 07:00 开盘', () => {
+  const bj = (y, m, d, hh, mm) => Date.UTC(y, m - 1, d, hh - 8, mm);
+  const sOpen = st('gold', bj(2026, 11, 28, 5, 30)); // 周五 16:30 EST
+  assert.strictEqual(sOpen.status, 'open');
+  assert.ok(sOpen.detail.includes('07:00–次日06:00'));
+  assert.strictEqual(sOpen.targetMs, bj(2026, 11, 28, 6, 0));
+
+  const sEnd = st('gold', bj(2026, 11, 28, 6, 15)); // 周五 17:15 EST
+  assert.strictEqual(sEnd.status, 'weekend');
+  assert.strictEqual(sEnd.targetMs, bj(2026, 11, 30, 7, 0)); // 周日 18:00 EST = 北京周一 07:00
+});
+test('冬令时与夏令时：每日 1 小时维护休市窗口', () => {
+  const bj = (y, m, d, hh, mm) => Date.UTC(y, m - 1, d, hh - 8, mm);
+  // 冬令时：周二北京 06:30（周一 17:30 EST）维护休市，07:00 恢复
+  const wBreak = st('gold', bj(2026, 12, 1, 6, 30));
+  assert.strictEqual(wBreak.status, 'overnight');
+  assert.ok(wBreak.detail.includes('06:00–07:00'));
+  assert.strictEqual(wBreak.targetMs, bj(2026, 12, 1, 7, 0));
+  assert.strictEqual(st('gold', bj(2026, 12, 1, 7, 0)).status, 'open');
+
+  // 夏令时：周三北京 05:30（周二 17:30 EDT）维护休市，06:00 恢复
+  const sBreak = st('gold', bj(2026, 7, 8, 5, 30));
+  assert.strictEqual(sBreak.status, 'overnight');
+  assert.ok(sBreak.detail.includes('05:00–06:00'));
+  assert.strictEqual(sBreak.targetMs, bj(2026, 7, 8, 6, 0));
+  assert.strictEqual(st('gold', bj(2026, 7, 8, 6, 0)).status, 'open');
+});
+test('COMEX 黄金节假日（元旦、耶稣受难日、圣诞节）', () => {
+  const bj = (y, m, d, hh, mm) => Date.UTC(y, m - 1, d, hh - 8, mm);
+  // 2026-12-25 圣诞节（平安夜 18:30 EST = 北京周五 07:30）全天 holiday，下次开盘为周一北京 07:00
+  const xmas = st('gold', bj(2026, 12, 25, 7, 30));
+  assert.strictEqual(xmas.status, 'holiday');
+  assert.strictEqual(xmas.targetMs, bj(2026, 12, 28, 7, 0));
+  // 2027-03-26 耶稣受难日（周四 18:30 EDT = 北京周五 06:30）holiday，下次开盘为周一夏令时 06:00
+  const gf = st('gold', bj(2027, 3, 26, 10, 0));
+  assert.strictEqual(gf.status, 'holiday');
+  assert.strictEqual(gf.targetMs, bj(2027, 3, 29, 6, 0));
+  // 2026-01-01 元旦白天为 holiday，当晚 18:30 EST（北京周五 07:30）恢复交易
+  assert.strictEqual(st('gold', bj(2026, 1, 1, 14, 0)).status, 'holiday');
+  assert.strictEqual(st('gold', bj(2026, 1, 2, 7, 30)).status, 'open');
+});
+
+console.log('欧股 XETRA 与集合竞价');
+test('欧股夏令时（北京 15:00–23:30）与冬令时（北京 16:00–00:30）', () => {
+  const bj = (y, m, d, hh, mm) => Date.UTC(y, m - 1, d, hh - 8, mm);
+  // 2026-07-08 夏令时：14:59 隔夜、15:00 开盘、23:30 收盘
+  assert.strictEqual(st('eu', bj(2026, 7, 8, 14, 59)).status, 'overnight');
+  const euSummer = st('eu', bj(2026, 7, 8, 15, 0));
+  assert.strictEqual(euSummer.status, 'open');
+  assert.ok(euSummer.detail.includes('15:00–23:30'));
+  assert.strictEqual(st('eu', bj(2026, 7, 8, 23, 30)).status, 'overnight');
+
+  // 2026-11-30 周一冬令时 16:00 开盘；2026-12-01 周二凌晨 00:15 仍在交易中，00:35 隔夜
+  assert.strictEqual(st('eu', bj(2026, 11, 30, 15, 59)).status, 'overnight');
+  assert.strictEqual(st('eu', bj(2026, 11, 30, 16, 0)).status, 'open');
+  assert.strictEqual(st('eu', bj(2026, 12, 1, 0, 15)).status, 'open');
+  assert.strictEqual(st('eu', bj(2026, 12, 1, 0, 35)).status, 'overnight');
+  assertTimelineMatchesStatus('eu', bj(2026, 12, 1, 0, 15));
+  assertTimelineMatchesStatus('eu', bj(2026, 12, 1, 0, 35));
+});
+test('欧股假期休市（圣诞平安夜/除夕）', () => {
+  const bj = (y, m, d, hh, mm) => Date.UTC(y, m - 1, d, hh - 8, mm);
+  assert.strictEqual(st('eu', bj(2026, 12, 24, 18, 0)).status, 'holiday');
+  assert.strictEqual(st('eu', bj(2027, 12, 31, 18, 0)).status, 'holiday');
+});
+test('A股 09:15–09:25 与港股 09:00–09:20 集合竞价微状态', () => {
+  const bj = (y, m, d, hh, mm) => Date.UTC(y, m - 1, d, hh - 8, mm);
+  const aPre = st('aShare', bj(2026, 12, 1, 9, 20));
+  assert.strictEqual(aPre.status, 'pre');
+  assert.ok(aPre.detail.includes('集合竞价'));
+  assertTimelineMatchesStatus('aShare', bj(2026, 12, 1, 9, 20));
+  assert.strictEqual(st('aShare', bj(2026, 12, 1, 9, 26)).status, 'overnight');
+
+  const hPre = st('hk', bj(2026, 12, 1, 9, 10));
+  assert.strictEqual(hPre.status, 'pre');
+  assertTimelineMatchesStatus('hk', bj(2026, 12, 1, 9, 10));
+  // 2027-02-05 半日市也包含开市前竞价
+  assert.strictEqual(st('hk', bj(2027, 2, 5, 9, 10)).status, 'pre');
 });
 
 console.log('时间轴指针与状态一致性回归');
@@ -204,13 +302,14 @@ test('2027-11-26 提前收盘日（北京 2027-11-27 04:00）：post 且落在 t
   assert.strictEqual(st('us', ms).status, 'post');
   assertTimelineMatchesStatus('us', ms);
 });
-test('跨周末边界及全部 7 大市场多时刻：指针所在分段与状态 100% 一致', () => {
+test('跨周末边界及全部 9 大市场多时刻：指针所在分段与状态 100% 一致', () => {
   const samples = [
-    utc(2026, 11, 27, 20, 27), // 北京周六 04:27（美股提前收盘盘后 / 布伦特交易中）
+    utc(2026, 11, 27, 20, 27), // 北京周六 04:27（美股提前收盘盘后 / 原油交易中）
     utc(2026, 11, 28, 12, 0),  // 北京周六 20:00（均周末）
-    utc(2026, 11, 30, 2, 0),   // 北京周一 10:00（亚太交易中 / 美股隔夜 / 布伦特交易中）
-    utc(2026, 11, 30, 15, 0),  // 北京周一 23:00（美股盘中）
-    utc(2026, 7, 8, 0, 30),    // 夏令时周三北京 08:30（布伦特刚开盘）
+    utc(2026, 11, 30, 1, 20),  // 北京周一 09:20（A股/港股竞价）
+    utc(2026, 11, 30, 2, 0),   // 北京周一 10:00（亚太交易中 / 欧美隔夜 / 原油交易中）
+    utc(2026, 11, 30, 15, 0),  // 北京周一 23:00（欧美重叠交易中）
+    utc(2026, 7, 8, 0, 30),    // 夏令时周三北京 08:30（原油刚开盘）
     utc(2026, 12, 25, 10, 0),  // 圣诞节休市
     utc(2027, 2, 5, 2, 0)      // 港股半日市 / A股春节
   ];
