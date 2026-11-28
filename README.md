@@ -4,7 +4,7 @@
 
 **以北京时间（UTC+8）为统一锚点的全球金融市场开休市看板 & iOS StandBy "Float" 风格桌面时钟（PWA）**
 
-[![Version](https://img.shields.io/badge/version-v0.12.0-blue.svg)](https://github.com/DHFS/trading-hours-dashboard/releases/tag/v0.12.0)
+[![Version](https://img.shields.io/badge/version-v0.12.1-blue.svg)](https://github.com/DHFS/trading-hours-dashboard/releases/tag/v0.12.1)
 [![Stack](https://img.shields.io/badge/stack-HTML%20%2B%20CSS%20%2B%20Vanilla%20JS-informational.svg)](#项目结构)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](#快速上手)
 [![PWA](https://img.shields.io/badge/PWA-iPhone%20StandBy%20Ready-black.svg)](#方式二安装为-iphone-横屏桌面时钟pwa)
@@ -66,7 +66,7 @@
 3. 从桌面「交易时钟」图标启动（默认全屏进入 `#crypto`），横置手机即可摆台使用；竖屏状态下也可选择继续浏览移动端网页看板或竖屏查看时钟。
 
 > [!TIP]
-> **升级提示**：从早期版本升级至 `v0.12.0` 时，由于 `manifest.json` 的 `start_url` 已更新版本号（`?v=0.12.0`），请先长按删除旧的主屏幕「交易时钟」图标，再用 Safari 重新「添加到主屏幕」，即可绕过 iOS PWA 旧启动条目缓存。
+> **升级提示**：从早期版本升级至 `v0.12.1` 时，由于 `manifest.json` 的 `start_url` 已更新版本号（`?v=0.12.1`），请先长按删除旧的主屏幕「交易时钟」图标，再用 Safari 重新「添加到主屏幕」，即可绕过 iOS PWA 旧启动条目缓存。
 
 #### 桌面时钟手势与快捷键速查
 
@@ -173,6 +173,11 @@ trading-hours-dashboard/
 ---
 
 ## 版本日志
+
+### `v0.12.1` (2026-11-28)
+- **桌面大屏整数阶梯自适应**：网页看板（`≥ 1024px`）接入 `16px → 18px → 20px → 24px (2560×1440) → 28px → 32px` 整数像素阶梯放大与容器上下左右对称居中，兼顾笔记本、1080p、24 寸 2K 与 27 寸 4K 大屏观感。
+- **macOS 4K 字体锐度优化**：桌面端优先使用系统原生光学字库（`-apple-system` / `SF Pro Text` / `PingFang SC` / `SF Mono`），移除强制削细的 `-webkit-font-smoothing: antialiased`，提亮暗底辅助文本对比度与字重，避免在 `2560×1440` 非整数缩放屏上发虚。
+- **同级标的统一字号**：移除网页看板次行缩水覆写，确保同市场内部平级标的（如 BTC / ETH、COMEX / 伦敦金、布伦特 / WTI 等）标签、价格与涨跌幅严格同级对齐（不影响全屏 Float 桌面时钟主指数显示逻辑）。
 
 ### `v0.12.0` (2026-11-28)
 - **瑞士世界时极简联动矩阵重构**：告别传统 Bento 卡片网格与冗余装饰，改用 4 列精密对齐矩阵，一屏尽览 9 大市场与统一 `00:00–24:00` 贯穿式激光时间轴；新增激光线左侧历史时段压暗遮罩。

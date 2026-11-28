@@ -9,8 +9,8 @@
   --surface-hover: rgba(255, 255, 255, 0.04);
   --ink: #F4F5F7;
   --text: #D1D5DB;
-  --muted: #8E95A2;
-  --faint: #676E7B;
+  --muted: #9DA5B4;
+  --faint: #7E8796;
   --hairline: rgba(255, 255, 255, 0.08);
   --track: rgba(255, 255, 255, 0.07);
 
@@ -27,8 +27,8 @@
   --c-up: #22C55E;
   --c-down: #EF4444;
 
-  --font-sans: "Space Grotesk", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", Menlo, Monaco, ui-monospace, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Space Grotesk", "Microsoft YaHei", sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, "JetBrains Mono", Monaco, monospace;
   --font-round: "SF Pro Rounded", "ui-rounded", "Nunito", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -39,13 +39,30 @@ body[data-trend="red-up"] {
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { background: var(--canvas); }
+/* 桌面端整数像素阶梯：避免非整数缩放屏（如 macOS 4K 开 2560×1440）出现小数 px 亚像素模糊 */
+@media (min-width: 1024px) {
+  html { font-size: 16px; }
+}
+@media (min-width: 1680px) and (min-height: 940px) {
+  html { font-size: 18px; }
+}
+@media (min-width: 1880px) and (min-height: 1020px) {
+  html { font-size: 20px; }
+}
+@media (min-width: 2240px) and (min-height: 1180px) {
+  html { font-size: 24px; }
+}
+@media (min-width: 2800px) and (min-height: 1450px) {
+  html { font-size: 28px; }
+}
+@media (min-width: 3400px) and (min-height: 1750px) {
+  html { font-size: 32px; }
+}
 body {
   font-family: var(--font-sans);
   color: var(--text);
   min-height: 100vh;
   line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 button { font-family: inherit; }
 

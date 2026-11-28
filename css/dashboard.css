@@ -1,11 +1,23 @@
 /* ============================================================
    网页 Dashboard：方案 A · 瑞士世界时极简联动矩阵
-   原则：零卡片套娃、零无意义图标、纵向精密对齐、一屏尽览 9 大市场 + 宏观风向标
+   原则：零卡片套娃、零无意义图标、纵向精密对齐、桌面端双向流体等比适配 1080p/2K/4K
    ============================================================ */
 #dashboard-view .container {
-  max-width: 1320px;
+  max-width: min(94vw, 82rem);
   margin: 0 auto;
-  padding: 16px 28px 24px;
+  padding: 1rem 1.75rem 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  #dashboard-view {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #dashboard-view .container {
+    width: 100%;
+    margin: auto;
+  }
 }
 
 /* ---------- 顶部栏（无多余公告条、无标题眉毛） ---------- */
@@ -14,13 +26,13 @@
   justify-content: space-between;
   align-items: flex-end;
   flex-wrap: wrap;
-  gap: 12px 24px;
-  padding-bottom: 14px;
+  gap: 0.75rem 1.5rem;
+  padding-bottom: 0.875rem;
   border-bottom: 1px solid var(--hairline);
 }
-.title-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px 14px; }
+.title-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.625rem 0.875rem; }
 .topbar h1 {
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.025em;
@@ -28,33 +40,34 @@
 }
 /* 无边框极简连接指示（区别于右侧可点击药丸按钮） */
 .conn-indicator {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  font-size: 0.75rem; font-weight: 500; color: var(--muted); white-space: nowrap;
 }
-.conn-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
+.conn-dot { width: 0.375rem; height: 0.375rem; border-radius: 50%; background: var(--faint); }
+#dashboard-view .dot { width: 0.375rem; height: 0.375rem; }
 .conn-live { color: #94E2D5; }
 .conn-live .conn-dot { background: var(--c-open); box-shadow: 0 0 8px rgba(20, 184, 166, 0.72); }
 .conn-poll .conn-dot { background: var(--c-pre); }
 .conn-cache .conn-dot { background: var(--c-holiday); }
 
 .sub-row {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-  margin-top: 7px; font-size: 12.5px; color: var(--muted);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem;
+  margin-top: 0.375rem; font-size: 0.75rem; color: var(--muted);
 }
 .sub-row .sep { color: var(--faint); }
 
-.topbar-right { display: flex; align-items: flex-end; gap: 18px; }
+.topbar-right { display: flex; align-items: flex-end; gap: 1.125rem; }
 .clock-block { text-align: right; }
 #clock {
   font-family: var(--font-mono);
-  font-size: 28px; font-weight: 600; line-height: 1; letter-spacing: -0.02em;
+  font-size: 1.75rem; font-weight: 600; line-height: 1; letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums; color: var(--ink);
 }
-.tz { font-size: 11px; color: var(--faint); letter-spacing: 0.04em; margin-top: 4px; }
-.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.tz { font-size: 0.75rem; color: var(--faint); letter-spacing: 0.04em; margin-top: 0.25rem; }
+.topbar-actions { display: flex; align-items: center; gap: 0.5rem; }
 .pill-btn {
-  min-height: 34px; padding: 6px 14px; border-radius: 999px;
-  font-size: 12.5px; font-weight: 600; cursor: pointer;
+  min-height: 2.125rem; padding: 0.375rem 0.875rem; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 600; cursor: pointer;
   color: var(--text); background: transparent; border: 1px solid var(--hairline);
   transition: background .15s ease, border-color .15s ease;
   white-space: nowrap;
@@ -64,9 +77,9 @@
 .pill-btn-primary:hover { background: #E2E5E9; }
 
 .data-warning {
-  margin-top: 12px;
+  margin-top: 0.75rem;
   background: rgba(245, 166, 35, 0.1); border: 1px solid rgba(245, 166, 35, 0.32);
-  color: #F5B84D; font-size: 12.5px; padding: 9px 14px; border-radius: 8px;
+  color: #F5B84D; font-size: 0.75rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem;
 }
 
 /* ---------- 顶部宏观风向标条（4 项纯宏观锚，均分细线分割） ---------- */
@@ -74,52 +87,52 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
-  padding: 9px 16px;
+  padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--hairline);
 }
 .macro-item {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 8px;
+  gap: 0.5rem;
   white-space: nowrap;
-  padding: 0 12px;
+  padding: 0 0.75rem;
   border-right: 1px solid var(--hairline);
 }
 .macro-item:first-child { justify-content: flex-start; padding-left: 0; }
 .macro-item:last-child { justify-content: flex-end; padding-right: 0; border-right: none; }
-.macro-label { font-size: 12px; color: var(--muted); }
+.macro-label { font-size: 0.75rem; font-weight: 500; color: var(--muted); }
 .macro-val {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  font-size: 13.5px; font-weight: 600; color: var(--ink);
+  font-size: 0.875rem; font-weight: 600; color: var(--ink);
 }
 .macro-pct {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  font-size: 12px; font-weight: 600;
+  font-size: 0.75rem; font-weight: 600;
 }
 
 /* ---------- 瑞士世界时 4 列联动矩阵（共享变量锁死垂直对齐） ---------- */
 .matrix {
-  --row-px: 16px;
-  --col-m: 184px;
-  --col-q: 262px;
-  --col-c: 118px;
-  --col-gap: 24px;
-  margin-top: 6px;
+  --row-px: 1rem;
+  --col-m: 11.5rem;
+  --col-q: 16.5rem;
+  --col-c: 7.5rem;
+  --col-gap: 1.5rem;
+  margin-top: 0.375rem;
 }
 .matrix-head {
   display: grid;
   grid-template-columns: var(--col-m) var(--col-q) 1fr var(--col-c);
   gap: var(--col-gap);
   align-items: end;
-  padding: 10px var(--row-px) 8px;
+  padding: 0.625rem var(--row-px) 0.5rem;
   border-bottom: 1px solid var(--hairline);
-  font-size: 11px; font-weight: 500; color: var(--faint); letter-spacing: 0.03em;
+  font-size: 0.75rem; font-weight: 500; color: var(--faint); letter-spacing: 0.03em;
 }
 .mh-quotes, .mh-cd { text-align: right; }
 .mh-scale {
   display: flex; justify-content: space-between;
-  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted);
 }
 
 .matrix-body { position: relative; }
@@ -148,10 +161,10 @@
   transition: left 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .laser-tag {
-  position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: -1.25rem; left: 50%; transform: translateX(-50%);
   background: #F5A623; color: #090A0C;
-  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; line-height: 1;
-  padding: 2.5px 6px; border-radius: 4px; white-space: nowrap;
+  font-family: var(--font-mono); font-size: 0.625rem; font-weight: 600; line-height: 1;
+  padding: 0.125rem 0.375rem; border-radius: 0.25rem; white-space: nowrap;
 }
 
 /* ---------- 市场行（零卡片边框、强活跃/休市视觉层级对比） ---------- */
@@ -160,7 +173,7 @@
   grid-template-columns: var(--col-m) var(--col-q) 1fr var(--col-c);
   gap: var(--col-gap);
   align-items: center;
-  padding: 8px var(--row-px);
+  padding: 0.5rem var(--row-px);
   border-bottom: 1px solid var(--hairline);
   cursor: pointer;
   transition: background .15s ease;
@@ -173,62 +186,58 @@
 .m-row.is-active-row[data-status="post"] { box-shadow: inset 2px 0 0 var(--c-post); }
 .m-row:hover { background: var(--surface-hover); }
 
-/* 休市行主动退后降噪：数值降灰、涨跌柔和，绝不与“交易中”抢焦点 */
-.m-row:not(.is-active-row) .m-name { color: #AEB4BF; font-weight: 500; }
-.m-row:not(.is-active-row) .q-main .q-val { color: #9CA3AF; font-weight: 500; }
-.m-row:not(.is-active-row) .q-sub .q-val { color: #6B7280; }
+/* 休市行主动退后降噪：数值与标签提亮对比度避免断笔，涨跌仍保留柔和透明层 */
+.m-row:not(.is-active-row) .m-name { color: #B8C0CC; font-weight: 500; }
+.m-row:not(.is-active-row) .q-val { color: #A8B0BD; font-weight: 500; }
 .m-row:not(.is-active-row) .q-pct { opacity: 0.56; }
 .m-row:not(.is-active-row) .m-cd { color: var(--muted); }
 .m-row:not(.is-active-row):hover .m-name { color: var(--ink); }
-.m-row:not(.is-active-row):hover .q-main .q-val { color: var(--text); }
+.m-row:not(.is-active-row):hover .q-val { color: var(--text); }
 .m-row:not(.is-active-row):hover .q-pct { opacity: 0.95; }
 
 /* 列 1：市场名 + 语义状态点 + 常规时段 */
 .m-info { min-width: 0; }
-.m-name-line { display: flex; align-items: center; gap: 10px; }
-.m-name { font-size: 14.5px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+.m-name-line { display: flex; align-items: center; gap: 0.625rem; }
+.m-name { font-size: 0.875rem; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
 .m-state {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 12px; font-weight: 500; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 0.3125rem;
+  font-size: 0.75rem; font-weight: 500; white-space: nowrap;
 }
 .m-state.st-open { color: #5EEAD4; }
 .m-state.st-lunch { color: #9CA3AF; }
 .m-state.st-pre { color: #F5B84D; }
 .m-state.st-post { color: #C2A2F5; }
 .m-state.st-overnight { color: #7CB3F5; }
-.m-state.st-weekend { color: var(--faint); }
+.m-state.st-weekend { color: var(--muted); }
 .m-state.st-holiday { color: #F07B7B; }
 .m-detail {
-  font-size: 11.5px; color: var(--faint); margin-top: 2px;
+  font-size: 0.75rem; font-weight: 500; color: var(--faint); margin-top: 0.125rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .m-row.is-active-row .m-detail { color: var(--muted); }
 
-/* 列 2：3 栏精密纵向对齐指数区（64px 容纳“日经225/恒生科技/离岸”等简洁标签） */
-.m-quotes { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* 列 2：3 栏精密纵向对齐指数区（所有平级标的采用统一字号、字重与对齐秩序） */
+.m-quotes { display: flex; flex-direction: column; gap: 0.1875rem; min-width: 0; }
 .q-line {
   display: grid;
-  grid-template-columns: 64px 1fr 68px;
+  grid-template-columns: 4.5rem 1fr 4.5rem;
   align-items: baseline;
-  gap: 8px;
+  gap: 0.5rem;
 }
-.q-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.q-label { font-size: 0.75rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
 .q-val {
   text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  font-size: 16.5px; font-weight: 600; color: var(--ink); line-height: 1.15; letter-spacing: -0.02em;
+  font-size: 0.875rem; font-weight: 600; color: var(--ink); line-height: 1.2; letter-spacing: -0.02em;
 }
 .q-pct {
   text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  font-size: 12px; font-weight: 600;
+  font-size: 0.75rem; font-weight: 600;
 }
-.q-sub .q-label { font-size: 11px; color: var(--faint); }
-.q-sub .q-val { font-size: 12px; font-weight: 500; color: #A6ACB8; }
-.q-sub .q-pct { font-size: 11px; font-weight: 500; }
 
 /* 列 3：统一坐标系 24h 轨道 */
-.m-track { position: relative; padding: 5px 0; }
+.m-track { position: relative; padding: 0.3125rem 0; }
 .timeline-bar {
-  display: flex; height: 9px; border-radius: 3px; overflow: hidden;
+  display: flex; height: 0.5rem; border-radius: 0.1875rem; overflow: hidden;
   background: var(--track);
 }
 .tl-open { background: var(--c-open); }
@@ -245,30 +254,30 @@
 
 /* 列 4：倒计时 + 悬停文字提示 */
 .m-cd {
-  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
-  font-family: var(--font-mono); font-size: 12px; color: var(--text);
+  display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--text);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .m-cd .cd-muted { color: var(--faint); }
 .m-arrow {
-  color: var(--faint); font-size: 13px; opacity: 0;
-  transform: translateX(-3px); transition: opacity .15s ease, transform .15s ease;
+  color: var(--faint); font-size: 0.75rem; opacity: 0;
+  transform: translateX(-0.125rem); transition: opacity .15s ease, transform .15s ease;
 }
 .m-row:hover .m-arrow { opacity: 1; transform: translateX(0); color: var(--ink); }
 
 /* ---------- 页脚（单行收口） ---------- */
 #dashboard-view footer {
-  margin-top: 14px;
+  margin-top: 0.875rem;
   display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: 0.5rem 1.25rem;
 }
 .legend {
-  display: flex; flex-wrap: wrap; gap: 6px 16px;
-  color: var(--muted); font-size: 11.5px;
+  display: flex; flex-wrap: wrap; gap: 0.375rem 1rem;
+  color: var(--muted); font-size: 0.75rem;
 }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
-.src { font-size: 11px; color: var(--faint); line-height: 1.5; }
+.legend span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.legend .sw { width: 0.5rem; height: 0.5rem; border-radius: 0.125rem; display: inline-block; }
+.src { font-size: 0.75rem; color: var(--faint); line-height: 1.5; }
 
 /* ---------- 响应式：平板与手机竖屏单手阅读 ---------- */
 @media (max-width: 1023px) {
